@@ -1,0 +1,34 @@
+{
+  "name": "cargoopt-frontend",
+  "version": "1.0.0",
+  "description": "CargoOpt Frontend - 3D Cargo Optimization Visualization",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "three": "^0.158.0",
+    "axios": "^1.6.0",
+    "vue": "^3.3.0",
+    "@vitejs/plugin-vue": "^4.0.0",
+    "vite": "^4.4.0"
+  },
+  "devDependencies": {
+    "vitest": "^0.34.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
