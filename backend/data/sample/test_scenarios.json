@@ -1,0 +1,164 @@
+{
+  "scenarios": [
+    {
+      "id": "urban_delivery",
+      "name": "Urban Delivery Scenario",
+      "description": "Small package delivery in urban area with mixed containers",
+      "containers": [
+        {
+          "id": "box1",
+          "name": "Small Box",
+          "length": 1.2,
+          "width": 0.8,
+          "height": 0.8,
+          "weight": 150,
+          "type": "box"
+        },
+        {
+          "id": "crate1",
+          "name": "Medium Crate",
+          "length": 1.0,
+          "width": 1.0,
+          "height": 1.0,
+          "weight": 200,
+          "type": "crate"
+        },
+        {
+          "id": "pallet1",
+          "name": "Standard Pallet",
+          "length": 1.5,
+          "width": 1.0,
+          "height": 0.5,
+          "weight": 100,
+          "type": "pallet"
+        },
+        {
+          "id": "box2",
+          "name": "Large Box",
+          "length": 0.8,
+          "width": 0.8,
+          "height": 0.8,
+          "weight": 50,
+          "type": "box"
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "van1",
+          "type": "van",
+          "max_weight": 800,
+          "length": 2.5,
+          "width": 1.8,
+          "height": 1.8,
+          "emission_factor": 0.00015
+        },
+        {
+          "id": "small_truck1",
+          "type": "small_truck",
+          "max_weight": 1000,
+          "length": 3.0,
+          "width": 2.0,
+          "height": 2.0,
+          "emission_factor": 0.00012
+        }
+      ],
+      "distance_km": 50
+    },
+    {
+      "id": "logistics_operation",
+      "name": "Large Logistics Operation",
+      "description": "Large scale logistics with multiple vehicle types and heavy containers",
+      "containers": [
+        {
+          "id": "heavy_pallet1",
+          "name": "Heavy Pallet",
+          "length": 2.4,
+          "width": 1.2,
+          "height": 1.2,
+          "weight": 500,
+          "type": "pallet"
+        },
+        {
+          "id": "industrial_crate1",
+          "name": "Industrial Crate",
+          "length": 1.2,
+          "width": 1.0,
+          "height": 1.0,
+          "weight": 300,
+          "type": "crate"
+        },
+        {
+          "id": "medium_pallet1",
+          "name": "Medium Pallet",
+          "length": 1.8,
+          "width": 1.2,
+          "height": 1.0,
+          "weight": 400,
+          "type": "pallet"
+        },
+        {
+          "id": "large_box1",
+          "name": "Large Box",
+          "length": 1.0,
+          "width": 1.0,
+          "height": 1.0,
+          "weight": 150,
+          "type": "box"
+        },
+        {
+          "id": "extra_heavy_pallet1",
+          "name": "Extra Heavy Pallet",
+          "length": 2.0,
+          "width": 1.5,
+          "height": 1.0,
+          "weight": 600,
+          "type": "pallet"
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "large_truck1",
+          "type": "large_truck",
+          "max_weight": 2000,
+          "length": 5.0,
+          "width": 2.5,
+          "height": 2.5,
+          "emission_factor": 0.00008
+        },
+        {
+          "id": "medium_truck1",
+          "type": "medium_truck",
+          "max_weight": 1500,
+          "length": 4.0,
+          "width": 2.2,
+          "height": 2.2,
+          "emission_factor": 0.00010
+        },
+        {
+          "id": "small_truck2",
+          "type": "small_truck",
+          "max_weight": 1000,
+          "length": 3.0,
+          "width": 2.0,
+          "height": 2.0,
+          "emission_factor": 0.00012
+        }
+      ],
+      "distance_km": 200
+    }
+  ],
+  "test_cases": [
+    {
+      "name": "Weight Constraint Test",
+      "description": "Test that heavy containers are properly distributed",
+      "containers": [
+        {"id": "heavy1", "name": "Heavy Container 1", "weight": 900, "length": 1, "width": 1, "height": 1, "type": "box"},
+        {"id": "heavy2", "name": "Heavy Container 2", "weight": 900, "length": 1, "width": 1, "height": 1, "type": "box"}
+      ],
+      "vehicles": [
+        {"id": "test_truck", "type": "small_truck", "max_weight": 1000, "length": 3, "width": 2, "height": 2, "emission_factor": 0.00012}
+      ],
+      "expected_result": "should_use_two_vehicles"
+    }
+  ]
+}

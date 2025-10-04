@@ -1,0 +1,211 @@
+2025-09-29 21:04:54,876 - __main__ - INFO - Starting CargoOpt Application...
+2025-09-29 21:04:54,882 - __main__ - INFO - Environment: development
+2025-09-29 21:04:54,883 - __main__ - INFO - Database URL: postgresql://cargoop...
+2025-09-29 21:04:54,884 - __main__ - INFO - Server will start on: 0.0.0.0:5000
+2025-09-29 21:04:56,682 - __main__ - ERROR - Failed to start application: No module named 'pydantic_settings'
+2025-09-29 21:04:56,685 - __main__ - ERROR - Detailed error traceback:
+Traceback (most recent call last):
+  File "D:\cargo space optimization\CargoOpt\run.py", line 88, in main
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\__init__.py", line 14, in <module>
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\main.py", line 15, in <module>
+    from backend.config.settings import get_settings
+  File "D:\cargo space optimization\CargoOpt\backend\config\__init__.py", line 6, in <module>
+    from backend.config.settings import get_settings, Settings
+  File "D:\cargo space optimization\CargoOpt\backend\config\settings.py", line 8, in <module>
+    from pydantic_settings import BaseSettings
+ModuleNotFoundError: No module named 'pydantic_settings'
+2025-09-29 21:08:10,201 - __main__ - INFO - Starting CargoOpt Application...
+2025-09-29 21:08:10,203 - __main__ - INFO - Environment: development
+2025-09-29 21:08:10,203 - __main__ - INFO - Database URL: postgresql://cargoop...
+2025-09-29 21:08:10,204 - __main__ - INFO - Server will start on: 0.0.0.0:5000
+2025-09-29 21:08:11,306 - dotenv.main - WARNING - python-dotenv could not parse statement starting at line 15
+2025-09-29 21:08:12,563 - dotenv.main - WARNING - python-dotenv could not parse statement starting at line 15
+2025-09-29 21:08:12,679 - __main__ - ERROR - Failed to start application: No module named 'asyncpg'
+2025-09-29 21:08:12,681 - __main__ - ERROR - Detailed error traceback:
+Traceback (most recent call last):
+  File "D:\cargo space optimization\CargoOpt\run.py", line 88, in main
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\__init__.py", line 14, in <module>
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\main.py", line 15, in <module>
+    from backend.config.settings import get_settings
+  File "D:\cargo space optimization\CargoOpt\backend\config\__init__.py", line 7, in <module>
+    from backend.config.database import init_db, get_db, DatabaseConfig
+  File "D:\cargo space optimization\CargoOpt\backend\config\database.py", line 43, in <module>
+    engine = create_async_engine(
+        db_config.async_database_url,
+    ...<2 lines>...
+        future=True,
+    )
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py", line 120, in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+  File "<string>", line 2, in create_engine
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\util\deprecations.py", line 281, in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\create.py", line 617, in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py", line 1103, in import_dbapi
+    return AsyncAdapt_asyncpg_dbapi(__import__("asyncpg"))
+                                    ~~~~~~~~~~^^^^^^^^^^^
+ModuleNotFoundError: No module named 'asyncpg'
+2025-09-29 21:15:42,979 - __main__ - INFO - Starting CargoOpt Application...
+2025-09-29 21:15:42,982 - __main__ - ERROR - Missing required environment variables: SECRET_KEY, HOST, PORT
+2025-09-29 21:15:42,982 - __main__ - INFO - Please check your .env file
+2025-09-29 21:16:43,075 - __main__ - INFO - Starting CargoOpt Application...
+2025-09-29 21:16:43,078 - __main__ - INFO - Environment: development
+2025-09-29 21:16:43,078 - __main__ - INFO - Database URL: postgresql://cargoop...
+2025-09-29 21:16:43,079 - __main__ - INFO - Server will start on: 0.0.0.0:5000
+2025-09-29 21:16:43,859 - dotenv.main - WARNING - python-dotenv could not parse statement starting at line 30
+2025-09-29 21:16:44,558 - dotenv.main - WARNING - python-dotenv could not parse statement starting at line 30
+2025-09-29 21:16:44,560 - __main__ - ERROR - Failed to start application: error parsing value for field "allowed_hosts" from source "EnvSettingsSource"
+2025-09-29 21:16:44,561 - __main__ - ERROR - Detailed error traceback:
+Traceback (most recent call last):
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\sources\base.py", line 496, in __call__
+    field_value = self.prepare_field_value(field_name, field, field_value, value_is_complex)
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\sources\providers\env.py", line 120, in prepare_field_value
+    raise e
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\sources\providers\env.py", line 117, in prepare_field_value
+    value = self.decode_complex_value(field_name, field, value)
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\sources\base.py", line 188, in decode_complex_value
+    return json.loads(value)
+           ~~~~~~~~~~^^^^^^^
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\json\decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\json\decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\cargo space optimization\CargoOpt\run.py", line 88, in main
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\__init__.py", line 14, in <module>
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\main.py", line 15, in <module>
+    from backend.config.settings import get_settings
+  File "D:\cargo space optimization\CargoOpt\backend\config\__init__.py", line 7, in <module>
+    from backend.config.database import init_db, get_db, DatabaseConfig
+  File "D:\cargo space optimization\CargoOpt\backend\config\database.py", line 16, in <module>
+    settings = get_settings()
+  File "D:\cargo space optimization\CargoOpt\backend\config\settings.py", line 116, in get_settings
+    _settings = Settings()
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\main.py", line 194, in __init__
+    **__pydantic_self__._settings_build_values(
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        values,
+        ^^^^^^^
+    ...<25 lines>...
+        _secrets_dir=_secrets_dir,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\main.py", line 436, in _settings_build_values
+    source_state = source()
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\sources\base.py", line 498, in __call__
+    raise SettingsError(
+        f'error parsing value for field "{field_name}" from source "{self.__class__.__name__}"'
+    ) from e
+pydantic_settings.exceptions.SettingsError: error parsing value for field "allowed_hosts" from source "EnvSettingsSource"
+2025-09-29 21:18:42,166 - __main__ - INFO - Starting CargoOpt Application...
+2025-09-29 21:18:42,169 - __main__ - INFO - Environment: development
+2025-09-29 21:18:42,169 - __main__ - INFO - Database URL: postgresql://cargoop...
+2025-09-29 21:18:42,171 - __main__ - INFO - Server will start on: 0.0.0.0:5000
+2025-09-29 21:18:43,068 - dotenv.main - WARNING - python-dotenv could not parse statement starting at line 21
+2025-09-29 21:18:43,700 - dotenv.main - WARNING - python-dotenv could not parse statement starting at line 21
+2025-09-29 21:18:43,703 - __main__ - ERROR - Failed to start application: error parsing value for field "allowed_hosts" from source "EnvSettingsSource"
+2025-09-29 21:18:43,703 - __main__ - ERROR - Detailed error traceback:
+Traceback (most recent call last):
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\sources\base.py", line 496, in __call__
+    field_value = self.prepare_field_value(field_name, field, field_value, value_is_complex)
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\sources\providers\env.py", line 120, in prepare_field_value
+    raise e
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\sources\providers\env.py", line 117, in prepare_field_value
+    value = self.decode_complex_value(field_name, field, value)
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\sources\base.py", line 188, in decode_complex_value
+    return json.loads(value)
+           ~~~~~~~~~~^^^^^^^
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\json\decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\json\decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\cargo space optimization\CargoOpt\run.py", line 88, in main
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\__init__.py", line 14, in <module>
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\main.py", line 15, in <module>
+    from backend.config.settings import get_settings
+  File "D:\cargo space optimization\CargoOpt\backend\config\__init__.py", line 7, in <module>
+    from backend.config.database import init_db, get_db, DatabaseConfig
+  File "D:\cargo space optimization\CargoOpt\backend\config\database.py", line 16, in <module>
+    settings = get_settings()
+  File "D:\cargo space optimization\CargoOpt\backend\config\settings.py", line 116, in get_settings
+    _settings = Settings()
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\main.py", line 194, in __init__
+    **__pydantic_self__._settings_build_values(
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        values,
+        ^^^^^^^
+    ...<25 lines>...
+        _secrets_dir=_secrets_dir,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\main.py", line 436, in _settings_build_values
+    source_state = source()
+  File "C:\Users\nagzz\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic_settings\sources\base.py", line 498, in __call__
+    raise SettingsError(
+        f'error parsing value for field "{field_name}" from source "{self.__class__.__name__}"'
+    ) from e
+pydantic_settings.exceptions.SettingsError: error parsing value for field "allowed_hosts" from source "EnvSettingsSource"
+2025-09-29 21:19:08,539 - __main__ - INFO - Starting CargoOpt Application...
+2025-09-29 21:19:08,542 - __main__ - INFO - Environment: development
+2025-09-29 21:19:08,542 - __main__ - INFO - Database URL: postgresql://cargoop...
+2025-09-29 21:19:08,543 - __main__ - INFO - Server will start on: 0.0.0.0:5000
+2025-09-29 21:19:09,345 - dotenv.main - WARNING - python-dotenv could not parse statement starting at line 8
+2025-09-29 21:19:09,967 - dotenv.main - WARNING - python-dotenv could not parse statement starting at line 8
+2025-09-29 21:19:10,262 - __main__ - ERROR - Failed to start application: No module named 'backend.api'
+2025-09-29 21:19:10,262 - __main__ - ERROR - Detailed error traceback:
+Traceback (most recent call last):
+  File "D:\cargo space optimization\CargoOpt\run.py", line 88, in main
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\__init__.py", line 14, in <module>
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\main.py", line 17, in <module>
+    from backend.api.routes import api_router
+ModuleNotFoundError: No module named 'backend.api'
+2025-09-29 21:23:38,841 - __main__ - INFO - Starting CargoOpt Application...
+2025-09-29 21:23:38,843 - __main__ - INFO - Environment: development
+2025-09-29 21:23:38,844 - __main__ - INFO - Database URL: postgresql://cargoop...
+2025-09-29 21:23:38,845 - __main__ - INFO - Server will start on: 0.0.0.0:5000
+2025-09-29 21:23:39,799 - dotenv.main - WARNING - python-dotenv could not parse statement starting at line 8
+2025-09-29 21:23:40,590 - dotenv.main - WARNING - python-dotenv could not parse statement starting at line 8
+2025-09-29 21:23:40,950 - __main__ - ERROR - Failed to start application: No module named 'backend.utils.math_utils'
+2025-09-29 21:23:40,951 - __main__ - ERROR - Detailed error traceback:
+Traceback (most recent call last):
+  File "D:\cargo space optimization\CargoOpt\run.py", line 88, in main
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\__init__.py", line 14, in <module>
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\main.py", line 18, in <module>
+    from backend.utils.logger import setup_logging
+  File "D:\cargo space optimization\CargoOpt\backend\utils\__init__.py", line 7, in <module>
+    from backend.utils.math_utils import (
+    ...<4 lines>...
+    )
+ModuleNotFoundError: No module named 'backend.utils.math_utils'

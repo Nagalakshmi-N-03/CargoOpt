@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cargo Space Optimization</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">
+                    <i class="fas fa-boxes"></i>
+                    CargoOpt
+                </h1>
+                <p class="tagline">Advanced Container Packing Optimization</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <nav class="nav-tabs">
+                    <button class="tab-btn active" data-tab="optimization">
+                        <i class="fas fa-cube"></i>
+                        Optimization
+                    </button>
+                    <button class="tab-btn" data-tab="containers">
+                        <i class="fas fa-shipping-fast"></i>
+                        Containers
+                    </button>
+                    <button class="tab-btn" data-tab="items">
+                        <i class="fas fa-box"></i>
+                        Items
+                    </button>
+                    <button class="tab-btn" data-tab="results">
+                        <i class="fas fa-chart-bar"></i>
+                        Results
+                    </button>
+                    <button class="tab-btn" data-tab="history">
+                        <i class="fas fa-history"></i>
+                        History
+                    </button>
+                </nav>
+
+                <div class="status-panel">
+                    <h3>System Status</h3>
+                    <div class="status-item">
+                        <span class="status-label">API:</span>
+                        <span class="status-value" id="api-status">Checking...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Database:</span>
+                        <span class="status-value" id="db-status">Checking...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Last Update:</span>
+                        <span class="status-value" id="last-update">-</span>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <h3>Quick Actions</h3>
+                    <button class="btn btn-outline btn-sm btn-block" id="load-sample-data">
+                        <i class="fas fa-magic"></i>
+                        Load Sample Data
+                    </button>
+                    <button class="btn btn-outline btn-sm btn-block" id="export-results">
+                        <i class="fas fa-download"></i>
+                        Export Results
+                    </button>
+                    <button class="btn btn-outline btn-sm btn-block" id="clear-data">
+                        <i class="fas fa-trash"></i>
+                        Clear All Data
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Optimization Tab -->
+                <div id="optimization" class="tab-content active">
+                    <div class="tab-header">
+                        <h2><i class="fas fa-cube"></i> Container Optimization</h2>
+                        <p>Optimize cargo placement using advanced algorithms</p>
+                    </div>
+
+                    <div class="optimization-controls">
+                        <div class="control-group">
+                            <label for="algorithm-select">Algorithm:</label>
+                            <select id="algorithm-select" class="form-select">
+                                <option value="auto">Auto Select (Recommended)</option>
+                                <option value="packing">Basic Packing</option>
+                                <option value="genetic">Genetic Algorithm</option>
+                                <option value="stowage">Multi-Container Stowage</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="strategy-select">Strategy:</label>
+                            <select id="strategy-select" class="form-select">
+                                <option value="balanced">Balanced</option>
+                                <option value="space_first">Space First</option>
+                                <option value="weight_first">Weight First</option>
+                                <option value="stability_first">Stability First</option>
+                            </select>
+                        </div>
+
+                        <div class="genetic-params" id="genetic-params" style="display: none;">
+                            <h4>Genetic Algorithm Parameters</h4>
+                            <div class="param-row">
+                                <div class="param-group">
+                                    <label for="generations">Generations:</label>
+                                    <input type="number" id="generations" value="100" min="10" max="1000" class="form-input">
+                                </div>
+                                <div class="param-group">
+                                    <label for="population-size">Population:</label>
+                                    <input type="number" id="population-size" value="50" min="10" max="200" class="form-input">
+                                </div>
+                                <div class="param-group">
+                                    <label for="mutation-rate">Mutation Rate:</label>
+                                    <input type="number" id="mutation-rate" value="0.1" step="0.01" min="0.01" max="0.5" class="form-input">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button id="validate-btn" class="btn btn-secondary">
+                                <i class="fas fa-check-circle"></i>
+                                Validate Data
+                            </button>
+                            <button id="optimize-btn" class="btn btn-primary">
+                                <i class="fas fa-play"></i>
+                                Run Optimization
+                            </button>
+                            <button id="compare-btn" class="btn btn-outline">
+                                <i class="fas fa-balance-scale"></i>
+                                Compare Algorithms
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="results-preview">
+                        <div class="preview-header">
+                            <h3>Optimization Preview</h3>
+                            <div class="preview-stats">
+                                <div class="stat">
+                                    <span class="stat-label">Containers:</span>
+                                    <span class="stat-value" id="preview-containers">0</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">Items:</span>
+                                    <span class="stat-value" id="preview-items">0</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">Total Volume:</span>
+                                    <span class="stat-value" id="preview-volume">0 m³</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="optimization-results" class="results-container">
+                            <div class="empty-state">
+                                <i class="fas fa-cube"></i>
+                                <p>Run optimization to see results</p>
+                                <small>Add containers and items, then run optimization to see placement results</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Containers Tab -->
+                <div id="containers" class="tab-content">
+                    <div class="tab-header">
+                        <h2><i class="fas fa-shipping-fast"></i> Container Management</h2>
+                        <p>Manage container types and specifications</p>
+                    </div>
+
+                    <div class="container-management">
+                        <div class="management-header">
+                            <h3>Available Containers</h3>
+                            <button id="add-container-btn" class="btn btn-primary">
+                                <i class="fas fa-plus"></i>
+                                Add Container
+                            </button>
+                        </div>
+
+                        <div class="containers-grid" id="containers-grid">
+                            <!-- Containers will be dynamically added here -->
+                        </div>
+
+                        <div class="standard-containers">
+                            <h4>Standard Container Types</h4>
+                            <p class="section-description">Click on a standard container to use its specifications</p>
+                            <div class="standard-grid" id="standard-containers">
+                                <!-- Standard containers will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Items Tab -->
+                <div id="items" class="tab-content">
+                    <div class="tab-header">
+                        <h2><i class="fas fa-box"></i> Cargo Items</h2>
+                        <p>Manage items to be packed</p>
+                    </div>
+
+                    <div class="items-management">
+                        <div class="management-header">
+                            <h3>Cargo Items</h3>
+                            <div class="header-actions">
+                                <button id="add-item-btn" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i>
+                                    Add Item
+                                </button>
+                                <button class="btn btn-outline" id="load-sample-items">
+                                    <i class="fas fa-magic"></i>
+                                    Load Sample
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="items-table-container">
+                            <table class="items-table" id="items-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Dimensions (cm)</th>
+                                        <th>Weight (kg)</th>
+                                        <th>Quantity</th>
+                                        <th>Properties</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="items-table-body">
+                                    <!-- Items will be dynamically added here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="items-summary">
+                            <div class="summary-card">
+                                <h4>Total Items</h4>
+                                <div class="summary-value" id="total-items">0</div>
+                            </div>
+                            <div class="summary-card">
+                                <h4>Total Volume</h4>
+                                <div class="summary-value" id="total-volume">0 m³</div>
+                            </div>
+                            <div class="summary-card">
+                                <h4>Total Weight</h4>
+                                <div class="summary-value" id="total-weight">0 kg</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Tab -->
+                <div id="results" class="tab-content">
+                    <div class="tab-header">
+                        <h2><i class="fas fa-chart-bar"></i> Optimization Results</h2>
+                        <p>View detailed optimization results and analytics</p>
+                    </div>
+
+                    <div class="results-dashboard">
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-icon">
+                                    <i class="fas fa-chart-pie"></i>
+                                </div>
+                                <div class="metric-info">
+                                    <div class="metric-value" id="metric-utilization">0%</div>
+                                    <div class="metric-label">Space Utilization</div>
+                                </div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-icon">
+                                    <i class="fas fa-boxes"></i>
+                                </div>
+                                <div class="metric-info">
+                                    <div class="metric-value" id="metric-items">0</div>
+                                    <div class="metric-label">Items Packed</div>
+                                </div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-icon">
+                                    <i class="fas fa-weight-hanging"></i>
+                                </div>
+                                <div class="metric-info">
+                                    <div class="metric-value" id="metric-weight">0%</div>
+                                    <div class="metric-label">Weight Utilization</div>
+                                </div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-icon">
+                                    <i class="fas fa-tachometer-alt"></i>
+                                </div>
+                                <div class="metric-info">
+                                    <div class="metric-value" id="metric-efficiency">0%</div>
+                                    <div class="metric-label">Efficiency Score</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="results-details">
+                            <div class="detail-section">
+                                <div class="section-header">
+                                    <h3>Placement Visualization</h3>
+                                    <div class="section-actions">
+                                        <button class="btn btn-outline btn-sm" id="export-visualization">
+                                            <i class="fas fa-download"></i>
+                                            Export
+                                        </button>
+                                        <button class="btn btn-outline btn-sm" id="toggle-3d-view">
+                                            <i class="fas fa-cube"></i>
+                                            3D View
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="visualization-container" class="visualization-container">
+                                    <div class="visualization-placeholder">
+                                        <i class="fas fa-cube"></i>
+                                        <p>3D visualization will appear here after optimization</p>
+                                        <small>Run an optimization to see the placement visualization</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="detail-section">
+                                <h3>Placement Details</h3>
+                                <div class="placements-table-container">
+                                    <table class="placements-table" id="placements-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Item ID</th>
+                                                <th>Position (x,y,z)</th>
+                                                <th>Dimensions</th>
+                                                <th>Rotated</th>
+                                                <th>Volume</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="placements-table-body">
+                                            <!-- Placements will be dynamically added here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div id="history" class="tab-content">
+                    <div class="tab-header">
+                        <h2><i class="fas fa-history"></i> Optimization History</h2>
+                        <p>View previous optimization runs</p>
+                    </div>
+
+                    <div class="history-content">
+                        <div class="history-filters">
+                            <div class="filter-group">
+                                <label for="history-algorithm">Algorithm:</label>
+                                <select id="history-algorithm" class="form-select">
+                                    <option value="">All Algorithms</option>
+                                    <option value="packing">Basic Packing</option>
+                                    <option value="genetic">Genetic Algorithm</option>
+                                    <option value="stowage">Stowage</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="history-limit">Show:</label>
+                                <select id="history-limit" class="form-select">
+                                    <option value="10">Last 10</option>
+                                    <option value="25">Last 25</option>
+                                    <option value="50">Last 50</option>
+                                </select>
+                            </div>
+                            <button id="refresh-history" class="btn btn-secondary">
+                                <i class="fas fa-sync"></i>
+                                Refresh
+                            </button>
+                        </div>
+
+                        <div class="history-table-container">
+                            <table class="history-table" id="history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Algorithm</th>
+                                        <th>Utilization</th>
+                                        <th>Items Packed</th>
+                                        <th>Execution Time</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-table-body">
+                                    <!-- History items will be dynamically added here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="container-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="container-modal-title">Add Container</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="container-form" class="form">
+                    <div class="form-group">
+                        <label for="container-name">Name:</label>
+                        <input type="text" id="container-name" class="form-input" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="container-length">Length (cm):</label>
+                            <input type="number" id="container-length" class="form-input" required min="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="container-width">Width (cm):</label>
+                            <input type="number" id="container-width" class="form-input" required min="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="container-height">Height (cm):</label>
+                            <input type="number" id="container-height" class="form-input" required min="1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="container-weight">Max Weight (kg):</label>
+                        <input type="number" id="container-weight" class="form-input" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="container-type">Type:</label>
+                        <select id="container-type" class="form-input">
+                            <option value="custom">Custom</option>
+                            <option value="standard_20ft">Standard 20ft</option>
+                            <option value="standard_40ft">Standard 40ft</option>
+                            <option value="high_cube_40ft">High Cube 40ft</option>
+                            <option value="reefer_20ft">Refrigerated 20ft</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="save-container">Save Container</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="item-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="item-modal-title">Add Item</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="item-form" class="form">
+                    <div class="form-group">
+                        <label for="item-id">ID:</label>
+                        <input type="number" id="item-id" class="form-input" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="item-name">Name:</label>
+                        <input type="text" id="item-name" class="form-input" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-length">Length (cm):</label>
+                            <input type="number" id="item-length" class="form-input" required min="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="item-width">Width (cm):</label>
+                            <input type="number" id="item-width" class="form-input" required min="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="item-height">Height (cm):</label>
+                            <input type="number" id="item-height" class="form-input" required min="0.1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="item-weight">Weight (kg):</label>
+                        <input type="number" id="item-weight" class="form-input" required min="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="item-quantity">Quantity:</label>
+                        <input type="number" id="item-quantity" class="form-input" value="1" min="1">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="item-fragile" class="form-checkbox">
+                            <label for="item-fragile">Fragile</label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="item-stackable" class="form-checkbox" checked>
+                            <label for="item-stackable">Stackable</label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="item-rotation" class="form-checkbox" checked>
+                            <label for="item-rotation">Rotation Allowed</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="save-item">Save Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner">
+            <i class="fas fa-cog fa-spin"></i>
+            <p>Processing...</p>
+        </div>
+    </div>
+
+    <!-- Notification System -->
+    <div id="notifications" class="notifications"></div>
+
+    <!-- JavaScript Files -->
+    <script src="js/utils/constants.js"></script>
+    <script src="js/utils/helpers.js"></script>
+    <script src="js/services/api.js"></script>
+    <script src="js/components/forms.js"></script>
+    <script src="js/components/results.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

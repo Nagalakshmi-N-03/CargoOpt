@@ -1,0 +1,109 @@
+{
+  "imdg_classes": [
+    {
+      "class": "1",
+      "name": "Explosives",
+      "description": "Substances and articles which have a mass explosion hazard",
+      "segregation_group": "A",
+      "compatibility_notes": "Keep away from heat and sources of ignition",
+      "storage_requirements": ["On deck only", "Away from living quarters"],
+      "emergency_procedures": "Use copious amounts of water"
+    },
+    {
+      "class": "2",
+      "name": "Gases",
+      "description": "Compressed, liquefied or dissolved under pressure gases",
+      "subclasses": ["2.1", "2.2", "2.3"],
+      "segregation_rules": {
+        "2.1": "Flammable gases - separate from oxidizers",
+        "2.2": "Non-flammable gases - general storage",
+        "2.3": "Toxic gases - special ventilation required"
+      },
+      "storage_requirements": ["Well ventilated areas", "Upright position"],
+      "emergency_procedures": "Evacuate area, use appropriate PPE"
+    },
+    {
+      "class": "3",
+      "name": "Flammable Liquids",
+      "description": "Liquids which give off flammable vapors at or below 60°C",
+      "segregation_group": "C",
+      "flash_point_ranges": {
+        "low": "< 23°C",
+        "medium": "23°C - 60°C",
+        "high": "> 60°C"
+      },
+      "storage_requirements": ["Cool, ventilated areas", "Away from ignition sources"],
+      "emergency_procedures": "Use foam, CO2, or dry chemical extinguishers"
+    },
+    {
+      "class": "4",
+      "name": "Flammable Solids",
+      "description": "Solids which are readily combustible or may cause fire",
+      "subclasses": ["4.1", "4.2", "4.3"],
+      "segregation_rules": {
+        "4.1": "Separate from oxidizing substances",
+        "4.2": "Keep dry and away from moisture",
+        "4.3": "Separate from water-reactive substances"
+      },
+      "storage_requirements": ["Dry conditions", "Cool environment"],
+      "emergency_procedures": "Use dry sand or special extinguishing agents"
+    },
+    {
+      "class": "5",
+      "name": "Oxidizing Substances",
+      "description": "Substances which may cause or contribute to combustion",
+      "subclasses": ["5.1", "5.2"],
+      "segregation_group": "D",
+      "compatibility_notes": "Separate from flammable materials",
+      "storage_requirements": ["Cool, well-ventilated areas", "Away from combustibles"],
+      "emergency_procedures": "Use large quantities of water"
+    },
+    {
+      "class": "6",
+      "name": "Toxic and Infectious Substances",
+      "description": "Substances liable to cause death or injury if inhaled, swallowed, or contact with skin",
+      "subclasses": ["6.1", "6.2"],
+      "storage_requirements": ["Secure storage", "Proper labeling", "Away from foodstuffs"],
+      "emergency_procedures": "Use appropriate PPE, evacuate area"
+    },
+    {
+      "class": "7",
+      "name": "Radioactive Material",
+      "description": "Materials emitting ionizing radiation",
+      "segregation_group": "F",
+      "storage_requirements": ["Special containers", "Radiation monitoring", "Isolated storage"],
+      "emergency_procedures": "Evacuate area, contact radiation safety officer"
+    },
+    {
+      "class": "8",
+      "name": "Corrosive Substances",
+      "description": "Substances which may cause damage to living tissue or other materials",
+      "segregation_group": "E",
+      "storage_requirements": ["Corrosion-resistant containers", "Good ventilation"],
+      "emergency_procedures": "Use copious amounts of water, neutralizers"
+    },
+    {
+      "class": "9",
+      "name": "Miscellaneous Dangerous Goods",
+      "description": "Substances presenting dangers not covered by other classes",
+      "segregation_group": "G",
+      "storage_requirements": ["As specified for specific materials"],
+      "emergency_procedures": "Follow specific material guidelines"
+    }
+  ],
+  "segregation_table": {
+    "A": ["Incompatible with A, B, C", "Safe with D, E, F, G"],
+    "B": ["Incompatible with A, B", "Safe with C, D, E, F, G"],
+    "C": ["Incompatible with A", "Safe with B, D, E, F, G"],
+    "D": ["Incompatible with E", "Safe with A, B, C, F, G"],
+    "E": ["Incompatible with D", "Safe with A, B, C, F, G"],
+    "F": ["No major incompatibilities", "Safe with all groups"],
+    "G": ["No major incompatibilities", "Safe with all groups"]
+  },
+  "container_requirements": {
+    "ventilated": ["Class 2", "Class 3", "Class 8"],
+    "refrigerated": ["Class 4.2", "Class 5.2", "Class 7 (some)"],
+    "special_handling": ["Class 1", "Class 6", "Class 7"],
+    "on_deck_only": ["Class 1", "Class 2.3", "Class 7 (high radiation)"]
+  }
+}

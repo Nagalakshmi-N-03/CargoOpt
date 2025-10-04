@@ -1,0 +1,98 @@
+{
+  "vessel_stability_parameters": {
+    "max_heeling_angle": 12.0,
+    "min_metacentric_height": 0.15,
+    "max_metacentric_height": 2.0,
+    "free_surface_effect_limit": 0.05,
+    "allowable_stress_limits": {
+      "hogging": 0.85,
+      "sagging": 0.90,
+      "torsional": 0.75
+    }
+  },
+  "loading_sequences": {
+    "even_distribution": {
+      "description": "Load evenly from center outward",
+      "priority": "high",
+      "rules": ["Start from centerline", "Work outward symmetrically", "Maintain even keel"]
+    },
+    "heavy_lifts": {
+      "description": "Special rules for heavy containers",
+      "priority": "medium",
+      "rules": ["Place heavy containers low", "Distribute heavy weights evenly", "Avoid concentration in ends"]
+    },
+    "dangerous_goods": {
+      "description": "Loading rules for hazardous materials",
+      "priority": "high",
+      "rules": ["Follow IMDG segregation", "Accessible locations", "Proper ventilation"]
+    }
+  },
+  "weight_distribution_rules": {
+    "vertical_center_of_gravity": {
+      "max_height_ratio": 0.65,
+      "optimal_range": "0.55-0.60",
+      "calculation_method": "weighted_average"
+    },
+    "longitudinal_balance": {
+      "max_trim_angle": 2.0,
+      "optimal_trim": "0.5-1.0 degrees by stern",
+      "corrective_actions": ["Ballast adjustment", "Container redistribution"]
+    },
+    "transverse_stability": {
+      "max_list_angle": 1.0,
+      "corrective_threshold": 0.5,
+      "monitoring_requirements": ["Continuous during loading", "After each tier"]
+    }
+  },
+  "container_stack_limits": {
+    "standard_containers": {
+      "max_tiers_on_deck": 5,
+      "max_tiers_in_hold": 7,
+      "max_weight_per_tier": 120000,
+      "stack_weight_distribution": "pyramid"
+    },
+    "heavy_containers": {
+      "max_tiers": 3,
+      "min_strength_requirement": "high",
+      "location_preference": "lower stacks"
+    },
+    "reefer_containers": {
+      "power_requirements": "dedicated circuits",
+      "ventilation_clearance": 0.3,
+      "monitoring_access": "required"
+    }
+  },
+  "environmental_factors": {
+    "wind_considerations": {
+      "max_wind_speed_loading": 25,
+      "stack_windage_calculation": "included",
+      "secure_before_storm": true
+    },
+    "sea_state_limits": {
+      "max_wave_height_loading": 2.0,
+      "motion_compensation": "required above 1.5m",
+      "dynamic_loading_factors": "applied"
+    },
+    "temperature_effects": {
+      "material_expansion": "considered",
+      "lashing_tension_adjustment": "temperature_corrected"
+    }
+  },
+  "safety_margins": {
+    "structural_limits": {
+      "hull_girder_strength": 0.85,
+      "local_patch_loading": 0.80,
+      "corrosion_allowance": 0.10
+    },
+    "operational_limits": {
+      "maximum_deadweight": 0.95,
+      "minimum_stability": 1.25,
+      "reserve_buoyancy": 1.10
+    },
+    "emergency_scenarios": {
+      "damage_stability": "two_compartment_standard",
+      "floodable_length": "compliant",
+      "freeboard_requirements": "met"
+    }
+  }
+}

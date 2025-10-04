@@ -1,0 +1,118 @@
+{
+  "standard_containers": [
+    {
+      "id": "container_20ft_1",
+      "name": "Standard 20ft Container",
+      "type": "standard_20ft",
+      "length": 605.0,
+      "width": 244.0,
+      "height": 259.0,
+      "max_weight": 28200.0,
+      "description": "Standard 20-foot dry container"
+    },
+    {
+      "id": "container_40ft_1",
+      "name": "Standard 40ft Container",
+      "type": "standard_40ft",
+      "length": 1219.0,
+      "width": 244.0,
+      "height": 259.0,
+      "max_weight": 26700.0,
+      "description": "Standard 40-foot dry container"
+    },
+    {
+      "id": "container_hc40ft_1",
+      "name": "High Cube 40ft Container",
+      "type": "high_cube_40ft",
+      "length": 1219.0,
+      "width": 244.0,
+      "height": 289.0,
+      "max_weight": 26700.0,
+      "description": "High cube 40-foot container"
+    }
+  ],
+  "test_items": [
+    {
+      "id": 1,
+      "name": "Small Box",
+      "length": 50.0,
+      "width": 40.0,
+      "height": 30.0,
+      "weight": 10.0,
+      "quantity": 10,
+      "fragile": false,
+      "stackable": true,
+      "rotation_allowed": true
+    },
+    {
+      "id": 2,
+      "name": "Medium Crate",
+      "length": 120.0,
+      "width": 80.0,
+      "height": 60.0,
+      "weight": 50.0,
+      "quantity": 5,
+      "fragile": false,
+      "stackable": true,
+      "rotation_allowed": true
+    },
+    {
+      "id": 3,
+      "name": "Large Pallet",
+      "length": 200.0,
+      "width": 120.0,
+      "height": 100.0,
+      "weight": 200.0,
+      "quantity": 3,
+      "fragile": false,
+      "stackable": true,
+      "rotation_allowed": false
+    },
+    {
+      "id": 4,
+      "name": "Fragile Equipment",
+      "length": 80.0,
+      "width": 60.0,
+      "height": 40.0,
+      "weight": 30.0,
+      "quantity": 2,
+      "fragile": true,
+      "stackable": false,
+      "rotation_allowed": false
+    },
+    {
+      "id": 5,
+      "name": "Long Pipe",
+      "length": 400.0,
+      "width": 20.0,
+      "height": 20.0,
+      "weight": 15.0,
+      "quantity": 8,
+      "fragile": false,
+      "stackable": true,
+      "rotation_allowed": true
+    }
+  ],
+  "test_scenarios": {
+    "single_container_small": {
+      "description": "Small items in single container",
+      "container_id": "container_20ft_1",
+      "item_ids": [1, 4]
+    },
+    "single_container_large": {
+      "description": "Large items in single container",
+      "container_id": "container_40ft_1",
+      "item_ids": [2, 3]
+    },
+    "multi_container": {
+      "description": "Multiple containers with mixed items",
+      "container_ids": ["container_20ft_1", "container_40ft_1"],
+      "item_ids": [1, 2, 3, 4, 5]
+    },
+    "complex_scenario": {
+      "description": "Complex scenario with all items and containers",
+      "container_ids": ["container_20ft_1", "container_40ft_1", "container_hc40ft_1"],
+      "item_ids": [1, 2, 3, 4, 5]
+    }
+  }
+}
