@@ -37,7 +37,7 @@ def check_environment():
     optional_vars = {
         'DATABASE_URL': 'sqlite:///./cargoopt.db',
         'HOST': '0.0.0.0',
-        'PORT': '8000',  # Changed from 5000 to 8000
+        'PORT': '8000',
         'DEBUG': 'true',
         'LOG_LEVEL': 'INFO'
     }
@@ -63,7 +63,6 @@ def check_dependencies():
         import uvicorn
         import sqlalchemy
         import pydantic
-        import pulp  # Added pulp for optimization
         
         logger.info("✅ All core dependencies are available")
         
@@ -75,6 +74,12 @@ def check_dependencies():
         
         # Optional dependencies
         try:
+            import pulp
+            logger.info(f"  PuLP: {pulp.__version__}")
+        except ImportError:
+            logger.warning("  ⚠️ PuLP not installed (required for optimization algorithms)")
+        
+        try:
             import pandas
             import numpy
             logger.info(f"  Pandas: {pandas.__version__}")
@@ -85,7 +90,7 @@ def check_dependencies():
         return True
         
     except ImportError as e:
-        logger.error(f"❌ Missing dependency: {e}")
+        logger.error(f"❌ Missing core dependency: {e}")
         logger.error("Please install all required packages: pip install -r requirements.txt")
         return False
 
@@ -102,6 +107,8 @@ def initialize_application():
         return None
     except Exception as e:
         logger.error(f"❌ Failed to initialize application: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
 
 def print_banner():
@@ -145,7 +152,7 @@ LOG_LEVEL=INFO
 SECRET_KEY=your-secret-key-change-in-production
 
 # CORS
-BACKEND_CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000"]
+BACKEND_CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173"]
 """)
         logger.info("✅ Default .env file created")
 
@@ -178,7 +185,7 @@ def main():
         
         # Get configuration
         host = os.getenv("HOST", "0.0.0.0")
-        port = int(os.getenv("PORT", "8000"))  # Default to 8000
+        port = int(os.getenv("PORT", "8000"))
         reload = os.getenv("DEBUG", "true").lower() == "true"
         log_level = os.getenv("LOG_LEVEL", "info").lower()
         
@@ -218,7 +225,7 @@ def main():
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         import traceback
-        logger.error(traceback.format_exc())
+        traceback.print_exc()
         sys.exit(1)
     finally:
         logger.info("CargoOpt application has stopped.")

@@ -1,0 +1,95 @@
+2025-10-05 15:43:04,853 - __main__ - INFO - Starting CargoOpt Application...
+2025-10-05 15:43:04,854 - __main__ - INFO - Environment Configuration:
+2025-10-05 15:43:04,854 - __main__ - INFO -   DATABASE_URL: postgresql://username:password@localhost:5432/cargoopt
+2025-10-05 15:43:04,855 - __main__ - INFO -   HOST: 0.0.0.0
+2025-10-05 15:43:04,856 - __main__ - INFO -   PORT: 8000
+2025-10-05 15:43:04,857 - __main__ - INFO -   DEBUG: true
+2025-10-05 15:43:04,857 - __main__ - INFO -   LOG_LEVEL: INFO
+2025-10-05 15:43:07,754 - __main__ - INFO - ✅ All core dependencies are available
+2025-10-05 15:43:07,755 - __main__ - INFO - Dependency Versions:
+2025-10-05 15:43:07,755 - __main__ - INFO -   FastAPI: 0.116.1
+2025-10-05 15:43:07,756 - __main__ - INFO -   SQLAlchemy: 2.0.43
+2025-10-05 15:43:07,756 - __main__ - INFO -   Pydantic: 2.11.7
+2025-10-05 15:43:13,748 - __main__ - INFO -   Pandas: 2.3.1
+2025-10-05 15:43:13,749 - __main__ - INFO -   NumPy: 2.3.2
+2025-10-05 15:43:14,356 - __main__ - ERROR - ❌ Failed to initialize application: name 'Enum' is not defined
+2025-10-05 15:43:14,359 - __main__ - ERROR - Failed to initialize application. Check backend structure.
+2025-10-05 15:43:14,360 - __main__ - INFO - CargoOpt application has stopped.
+2025-10-05 17:08:55,067 - __main__ - INFO - Starting CargoOpt Application...
+2025-10-05 17:08:55,068 - __main__ - INFO - Environment Configuration:
+2025-10-05 17:08:55,068 - __main__ - INFO -   DATABASE_URL: postgresql://username:password@localhost:5432/cargoopt
+2025-10-05 17:08:55,069 - __main__ - INFO -   HOST: 0.0.0.0
+2025-10-05 17:08:55,069 - __main__ - INFO -   PORT: 8000
+2025-10-05 17:08:55,069 - __main__ - INFO -   DEBUG: true
+2025-10-05 17:08:55,070 - __main__ - INFO -   LOG_LEVEL: INFO
+2025-10-05 17:08:56,793 - __main__ - INFO - ✅ All core dependencies are available
+2025-10-05 17:08:56,794 - __main__ - INFO - Dependency Versions:
+2025-10-05 17:08:56,794 - __main__ - INFO -   FastAPI: 0.116.1
+2025-10-05 17:08:56,795 - __main__ - INFO -   SQLAlchemy: 2.0.43
+2025-10-05 17:08:56,795 - __main__ - INFO -   Pydantic: 2.11.7
+2025-10-05 17:08:58,836 - __main__ - INFO -   Pandas: 2.3.1
+2025-10-05 17:08:58,837 - __main__ - INFO -   NumPy: 2.3.2
+2025-10-05 17:08:59,297 - __main__ - ERROR - ❌ Failed to initialize application: name 'Enum' is not defined
+2025-10-05 17:08:59,298 - __main__ - ERROR - Failed to initialize application. Check backend structure.
+2025-10-05 17:08:59,299 - __main__ - INFO - CargoOpt application has stopped.
+2025-10-05 17:20:17,247 - __main__ - INFO - Starting CargoOpt Application...
+2025-10-05 17:20:17,248 - __main__ - INFO - Environment Configuration:
+2025-10-05 17:20:17,249 - __main__ - INFO -   DATABASE_URL: postgresql://username:password@localhost:5432/cargoopt
+2025-10-05 17:20:17,249 - __main__ - INFO -   HOST: 0.0.0.0
+2025-10-05 17:20:17,250 - __main__ - INFO -   PORT: 8000
+2025-10-05 17:20:17,250 - __main__ - INFO -   DEBUG: true
+2025-10-05 17:20:17,250 - __main__ - INFO -   LOG_LEVEL: INFO
+2025-10-05 17:20:18,604 - __main__ - INFO - ✅ All core dependencies are available
+2025-10-05 17:20:18,609 - __main__ - INFO - Dependency Versions:
+2025-10-05 17:20:18,615 - __main__ - INFO -   FastAPI: 0.116.1
+2025-10-05 17:20:18,617 - __main__ - INFO -   SQLAlchemy: 2.0.43
+2025-10-05 17:20:18,618 - __main__ - INFO -   Pydantic: 2.11.7
+2025-10-05 17:20:19,981 - __main__ - INFO -   Pandas: 2.3.1
+2025-10-05 17:20:19,981 - __main__ - INFO -   NumPy: 2.3.2
+2025-10-05 17:20:20,259 - __main__ - ERROR - ❌ Failed to initialize application: name 'Enum' is not defined
+2025-10-05 17:20:20,260 - __main__ - ERROR - Failed to initialize application. Check backend structure.
+2025-10-05 17:20:20,260 - __main__ - INFO - CargoOpt application has stopped.
+2025-10-05 17:20:59,388 - __main__ - INFO - Starting CargoOpt Application...
+2025-10-05 17:20:59,389 - __main__ - INFO - Environment Configuration:
+2025-10-05 17:20:59,390 - __main__ - INFO -   DATABASE_URL: postgresql://username:password@localhost:5432/cargoopt
+2025-10-05 17:20:59,391 - __main__ - INFO -   HOST: 0.0.0.0
+2025-10-05 17:20:59,391 - __main__ - INFO -   PORT: 8000
+2025-10-05 17:20:59,392 - __main__ - INFO -   DEBUG: true
+2025-10-05 17:20:59,392 - __main__ - INFO -   LOG_LEVEL: INFO
+2025-10-05 17:21:00,630 - __main__ - INFO - ✅ All core dependencies are available
+2025-10-05 17:21:00,631 - __main__ - INFO - Dependency Versions:
+2025-10-05 17:21:00,631 - __main__ - INFO -   FastAPI: 0.116.1
+2025-10-05 17:21:00,632 - __main__ - INFO -   SQLAlchemy: 2.0.43
+2025-10-05 17:21:00,632 - __main__ - INFO -   Pydantic: 2.11.7
+2025-10-05 17:21:00,726 - __main__ - INFO -   PuLP: 3.3.0
+2025-10-05 17:21:01,947 - __main__ - INFO -   Pandas: 2.3.1
+2025-10-05 17:21:01,948 - __main__ - INFO -   NumPy: 2.3.2
+2025-10-05 17:21:02,229 - __main__ - ERROR - ❌ Failed to initialize application: name 'Enum' is not defined
+2025-10-05 17:21:02,245 - __main__ - ERROR - Traceback (most recent call last):
+  File "D:\cargo space optimization\CargoOpt\run.py", line 101, in initialize_application
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\__init__.py", line 14, in <module>
+    from backend.main import app
+  File "D:\cargo space optimization\CargoOpt\backend\main.py", line 32, in <module>
+    from services.emission_calculator import EmissionCalculator
+  File "D:\cargo space optimization\CargoOpt\backend\services\__init__.py", line 6, in <module>
+    from .optimization import OptimizationService
+  File "D:\cargo space optimization\CargoOpt\backend\services\optimization.py", line 10, in <module>
+    from backend.services.data_processor import DataProcessor
+  File "D:\cargo space optimization\CargoOpt\backend\services\__init__.py", line 6, in <module>
+    from .optimization import OptimizationService
+  File "D:\cargo space optimization\CargoOpt\backend\services\optimization.py", line 11, in <module>
+    from backend.models import OptimizationResult
+  File "D:\cargo space optimization\CargoOpt\backend\models\__init__.py", line 7, in <module>
+    from backend.models.vessel import Vessel, VesselType, VesselCompartment
+  File "D:\cargo space optimization\CargoOpt\backend\models\vessel.py", line 26, in <module>
+    class Vessel(Base):
+    ...<52 lines>...
+        compartments = relationship("VesselCompartment", back_populates="vessel")
+  File "D:\cargo space optimization\CargoOpt\backend\models\vessel.py", line 40, in Vessel
+    vessel_type = Column(Enum(VesselType), nullable=False)
+                         ^^^^
+NameError: name 'Enum' is not defined. Did you mean: 'enum'?
+
+2025-10-05 17:21:02,246 - __main__ - ERROR - Failed to initialize application. Check backend structure.
+2025-10-05 17:21:02,247 - __main__ - INFO - CargoOpt application has stopped.
