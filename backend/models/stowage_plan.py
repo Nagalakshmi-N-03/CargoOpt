@@ -1,222 +1,263 @@
-import logging
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass, asdict
+"""
+Stowage Plan Models
+Database models and classes for stowage planning
+"""
+
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, JSON, ForeignKey, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from typing import Optional, Dict, Any, List
+from pydantic import BaseModel, field_validator
 from datetime import datetime
-from enum import Enum
-import json
+import enum
 
-logger = logging.getLogger(__name__)
+Base = declarative_base()
 
-class StowageStatus(str, Enum):
-    PLANNED = "planned"
+
+class StowagePlanStatus(enum.Enum):
+    """Stowage plan status enumeration"""
+    DRAFT = "draft"
+    APPROVED = "approved"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
-class ContainerStatus(str, Enum):
-    EMPTY = "empty"
-    PARTIALLY_LOADED = "partially_loaded"
-    FULLY_LOADED = "fully_loaded"
-    OVERLOADED = "overloaded"
 
-@dataclass
-class ContainerAssignment:
-    container_id: str
-    container_data: Dict[str, Any]
-    items: List[Dict[str, Any]]
-    placements: List[Dict[str, Any]]
+class StowagePlan(Base):
+    """Stowage plan database model"""
+    __tablename__ = "stowage_plans"
+
+    # Primary key
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Plan identification
+    plan_number = Column(String(50), unique=True, index=True, nullable=False)
+    vessel_id = Column(Integer, ForeignKey("vessels.id"), nullable=False)
+    voyage_number = Column(String(50))
+    
+    # Status and timestamps
+    status = Column(String(20), default="draft")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    approved_by = Column(String(100), nullable=True)
+    
+    # Port information
+    loading_port = Column(String(100))
+    discharge_port = Column(String(100))
+    estimated_departure = Column(DateTime(timezone=True))
+    estimated_arrival = Column(DateTime(timezone=True))
+    
+    # Optimization results
+    total_containers = Column(Integer, default=0)
+    total_weight = Column(Float, default=0.0)
+    total_volume = Column(Float, default=0.0)
+    utilization_rate = Column(Float, default=0.0)
+    
+    # Stability calculations
+    calculated_gm = Column(Float, nullable=True)
+    calculated_trim = Column(Float, nullable=True)
+    is_stable = Column(Boolean, default=True)
+    
+    # Optimization metadata
+    algorithm_used = Column(String(50))
+    optimization_time = Column(Float, nullable=True)  # in seconds
+    iterations_count = Column(Integer, nullable=True)
+    
+    # Additional data
+    notes = Column(Text, nullable=True)
+    extra_data = Column(JSON, nullable=True)  # CHANGED: renamed from 'metadata' to 'extra_data'
+    
+    # Relationships
+    positions = relationship("StowagePosition", back_populates="stowage_plan", cascade="all, delete-orphan")
+
+
+class StowagePosition(Base):
+    """Stowage position database model - represents a container placement"""
+    __tablename__ = "stowage_positions"
+
+    # Primary key
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Foreign keys
+    stowage_plan_id = Column(Integer, ForeignKey("stowage_plans.id"), nullable=False)
+    container_id = Column(Integer, nullable=False)
+    compartment_id = Column(Integer, ForeignKey("vessel_compartments.id"), nullable=False)
+    
+    # Position details
+    bay = Column(Integer, nullable=False)
+    row = Column(Integer, nullable=False)
+    tier = Column(Integer, nullable=False)
+    
+    # 3D coordinates
+    position_x = Column(Float, nullable=False)
+    position_y = Column(Float, nullable=False)
+    position_z = Column(Float, nullable=False)
+    
+    # Container orientation
+    rotation = Column(Integer, default=0)  # 0, 90, 180, 270 degrees
+    
+    # Loading sequence
+    load_sequence = Column(Integer, nullable=True)
+    discharge_sequence = Column(Integer, nullable=True)
+    
+    # Status
+    is_loaded = Column(Boolean, default=False)
+    is_discharged = Column(Boolean, default=False)
+    
+    # Timestamps
+    loaded_at = Column(DateTime(timezone=True), nullable=True)
+    discharged_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Additional info
+    notes = Column(Text, nullable=True)
+    
+    # Relationships
+    stowage_plan = relationship("StowagePlan", back_populates="positions")
+
+    def get_position_code(self) -> str:
+        """Generate position code (e.g., '010203' for bay1, row2, tier3)"""
+        return f"{self.bay:02d}{self.row:02d}{self.tier:02d}"
+
+
+class OptimizationResult(Base):
+    """Optimization result database model - stores results of optimization runs"""
+    __tablename__ = "optimization_results"
+
+    # Primary key
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Algorithm information
+    algorithm = Column(String(50), nullable=False, index=True)
+    
+    # Container/vessel reference
+    container_id = Column(Integer, nullable=True)
+    
+    # Results
+    utilization_rate = Column(Float, nullable=False)
+    total_items_packed = Column(Integer, nullable=False)
+    total_volume_used = Column(Float, nullable=False)
+    total_weight_used = Column(Float, default=0.0)
+    
+    # Performance metrics
+    execution_time = Column(Float, nullable=True)  # in seconds
+    iterations_count = Column(Integer, nullable=True)
+    
+    # Detailed placement data (JSON)
+    placement_data = Column(JSON, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Additional metadata
+    extra_data = Column(JSON, nullable=True)  # CHANGED: renamed from 'metadata' to 'extra_data'
+
+
+# Pydantic models for API
+class StowagePositionBase(BaseModel):
+    """Base Pydantic model for stowage position"""
+    container_id: int
+    compartment_id: int
+    bay: int
+    row: int
+    tier: int
+    position_x: float
+    position_y: float
+    position_z: float
+    rotation: int = 0
+    load_sequence: Optional[int] = None
+    discharge_sequence: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class StowagePositionCreate(StowagePositionBase):
+    """Pydantic model for creating a stowage position"""
+    pass
+
+
+class StowagePositionResponse(StowagePositionBase):
+    """Pydantic model for stowage position API response"""
+    id: int
+    stowage_plan_id: int
+    position_code: str
+    is_loaded: bool
+    is_discharged: bool
+    loaded_at: Optional[datetime] = None
+    discharged_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+    @field_validator('position_code', mode='before')
+    @classmethod
+    def generate_position_code(cls, v, info):
+        """Generate position code from bay, row, tier numbers"""
+        if v is not None:
+            return v
+        data = info.data
+        bay = data.get('bay', 0)
+        row = data.get('row', 0)
+        tier = data.get('tier', 0)
+        return f"{bay:02d}{row:02d}{tier:02d}"
+
+
+class StowagePlanBase(BaseModel):
+    """Base Pydantic model for stowage plan"""
+    plan_number: str
+    vessel_id: int
+    voyage_number: Optional[str] = None
+    loading_port: Optional[str] = None
+    discharge_port: Optional[str] = None
+    estimated_departure: Optional[datetime] = None
+    estimated_arrival: Optional[datetime] = None
+    algorithm_used: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class StowagePlanCreate(StowagePlanBase):
+    """Pydantic model for creating a stowage plan"""
+    positions: List[StowagePositionCreate] = []
+
+
+class StowagePlanUpdate(BaseModel):
+    """Pydantic model for updating a stowage plan"""
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    approved_by: Optional[str] = None
+
+
+class StowagePlanResponse(StowagePlanBase):
+    """Pydantic model for stowage plan API response"""
+    id: int
+    status: str
+    total_containers: int
+    total_weight: float
+    total_volume: float
     utilization_rate: float
-    weight_utilization: float
-    status: ContainerStatus
-    total_volume_used: float
-    total_weight_used: float
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-    
-    def validate_assignment(self) -> Dict[str, Any]:
-        """Validate container assignment for constraints"""
-        issues = []
-        warnings = []
-        
-        # Check weight constraints
-        max_weight = self.container_data.get('max_weight', 0)
-        if self.total_weight_used > max_weight:
-            issues.append(f"Container {self.container_id} is overloaded: {self.total_weight_used:.2f}kg > {max_weight:.2f}kg")
-        
-        # Check volume constraints
-        container_volume = (
-            self.container_data['length'] * 
-            self.container_data['width'] * 
-            self.container_data['height']
-        )
-        if self.total_volume_used > container_volume:
-            issues.append(f"Container {self.container_id} volume exceeded: {self.total_volume_used:.2f}cm³ > {container_volume:.2f}cm³")
-        
-        # Check utilization thresholds
-        if self.utilization_rate < 0.3:
-            warnings.append(f"Container {self.container_id} has low space utilization: {self.utilization_rate:.1%}")
-        
-        if self.weight_utilization < 0.3:
-            warnings.append(f"Container {self.container_id} has low weight utilization: {self.weight_utilization:.1%}")
-        
-        return {
-            'valid': len(issues) == 0,
-            'issues': issues,
-            'warnings': warnings
-        }
+    calculated_gm: Optional[float] = None
+    calculated_trim: Optional[float] = None
+    is_stable: bool
+    optimization_time: Optional[float] = None
+    iterations_count: Optional[int] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    approved_at: Optional[datetime] = None
+    positions: List[StowagePositionResponse] = []
 
-@dataclass
-class StowagePlan:
-    plan_id: str
-    containers: List[ContainerAssignment]
-    unassigned_items: List[Dict[str, Any]]
-    total_utilization: float
-    total_containers_used: int
+    model_config = {"from_attributes": True}
+
+
+class OptimizationResultResponse(BaseModel):
+    """Pydantic model for optimization result API response"""
+    id: int
+    algorithm: str
+    container_id: Optional[int] = None
+    utilization_rate: float
     total_items_packed: int
     total_volume_used: float
     total_weight_used: float
-    algorithm_used: str
-    strategy: str
-    status: StowageStatus
+    execution_time: Optional[float] = None
+    iterations_count: Optional[int] = None
     created_at: datetime
-    execution_time: float
-    metadata: Dict[str, Any] = None
-    
-    def __post_init__(self):
-        if self.metadata is None:
-            self.metadata = {}
-        if not hasattr(self, 'created_at') or self.created_at is None:
-            self.created_at = datetime.now()
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert stowage plan to dictionary"""
-        data = asdict(self)
-        # Convert datetime to string for JSON serialization
-        data['created_at'] = self.created_at.isoformat()
-        return data
-    
-    def to_json(self) -> str:
-        """Convert stowage plan to JSON string"""
-        return json.dumps(self.to_dict(), indent=2, default=str)
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'StowagePlan':
-        """Create StowagePlan from dictionary"""
-        # Convert string back to datetime
-        if isinstance(data.get('created_at'), str):
-            data['created_at'] = datetime.fromisoformat(data['created_at'])
-        
-        # Recreate container assignments
-        if 'containers' in data:
-            containers_data = data['containers']
-            data['containers'] = [
-                ContainerAssignment(**container_data) 
-                for container_data in containers_data
-            ]
-        
-        return cls(**data)
-    
-    def calculate_metrics(self) -> Dict[str, Any]:
-        """Calculate comprehensive stowage metrics"""
-        total_container_volume = sum(
-            assignment.container_data['length'] * 
-            assignment.container_data['width'] * 
-            assignment.container_data['height']
-            for assignment in self.containers
-        )
-        
-        total_container_weight = sum(
-            assignment.container_data.get('max_weight', 0)
-            for assignment in self.containers
-        )
-        
-        space_efficiency = self.total_volume_used / total_container_volume if total_container_volume > 0 else 0
-        weight_efficiency = self.total_weight_used / total_container_weight if total_container_weight > 0 else 0
-        
-        # Calculate balance score (how evenly containers are utilized)
-        utilization_rates = [assignment.utilization_rate for assignment in self.containers]
-        if utilization_rates:
-            avg_utilization = sum(utilization_rates) / len(utilization_rates)
-            balance_score = 1 - (sum(abs(rate - avg_utilization) for rate in utilization_rates) / len(utilization_rates))
-        else:
-            balance_score = 0
-        
-        overall_efficiency = (space_efficiency * 0.6 + weight_efficiency * 0.3 + balance_score * 0.1)
-        
-        return {
-            'space_efficiency': round(space_efficiency, 4),
-            'weight_efficiency': round(weight_efficiency, 4),
-            'balance_score': round(balance_score, 4),
-            'overall_efficiency': round(overall_efficiency, 4),
-            'container_count': len(self.containers),
-            'items_packed': self.total_items_packed,
-            'items_unassigned': len(self.unassigned_items),
-            'packing_rate': self.total_items_packed / (self.total_items_packed + len(self.unassigned_items)) if (self.total_items_packed + len(self.unassigned_items)) > 0 else 0
-        }
-    
-    def validate_plan(self) -> Dict[str, Any]:
-        """Validate the entire stowage plan"""
-        all_issues = []
-        all_warnings = []
-        
-        # Validate each container assignment
-        for assignment in self.containers:
-            validation = assignment.validate_assignment()
-            all_issues.extend(validation['issues'])
-            all_warnings.extend(validation['warnings'])
-        
-        # Check for unassigned items
-        if self.unassigned_items:
-            all_warnings.append(f"{len(self.unassigned_items)} items could not be assigned to containers")
-        
-        # Check overall efficiency
-        metrics = self.calculate_metrics()
-        if metrics['overall_efficiency'] < 0.6:
-            all_warnings.append(f"Low overall efficiency: {metrics['overall_efficiency']:.1%}")
-        
-        return {
-            'valid': len(all_issues) == 0,
-            'issues': all_issues,
-            'warnings': all_warnings,
-            'metrics': metrics
-        }
-    
-    def get_container_summary(self) -> List[Dict[str, Any]]:
-        """Get summary for each container"""
-        summary = []
-        for assignment in self.containers:
-            container_data = assignment.container_data
-            summary.append({
-                'container_id': assignment.container_id,
-                'name': container_data.get('name', 'Unknown'),
-                'type': container_data.get('type', 'custom'),
-                'items_count': len(assignment.items),
-                'utilization_rate': assignment.utilization_rate,
-                'weight_utilization': assignment.weight_utilization,
-                'status': assignment.status,
-                'total_volume_used': assignment.total_volume_used,
-                'total_weight_used': assignment.total_weight_used
-            })
-        return summary
-    
-    def get_unassigned_items_summary(self) -> Dict[str, Any]:
-        """Get summary of unassigned items"""
-        if not self.unassigned_items:
-            return {'count': 0, 'total_volume': 0, 'total_weight': 0}
-        
-        total_volume = sum(
-            item['length'] * item['width'] * item['height'] * item.get('quantity', 1)
-            for item in self.unassigned_items
-        )
-        total_weight = sum(
-            item['weight'] * item.get('quantity', 1)
-            for item in self.unassigned_items
-        )
-        
-        return {
-            'count': len(self.unassigned_items),
-            'total_volume': total_volume,
-            'total_weight': total_weight,
-            'items': self.unassigned_items
-        }
+
+    model_config = {"from_attributes": True}

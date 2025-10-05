@@ -6,7 +6,7 @@ Environment-based configuration management for CargoOpt
 import os
 from typing import List, Optional
 from pydantic_settings import BaseSettings
-from pydantic import validator
+from pydantic import field_validator
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -34,13 +34,8 @@ class Settings(BaseSettings):
         "http://localhost:5000",
     ]
     
-    # Database
+    # Database - consolidated fields
     database_url: str = "postgresql://username:password@localhost:5432/cargoopt"
-    database_name: str = "cargoopt"
-    database_user: str = "cargoopt_user"
-    database_password: str = "your_secure_password"
-    database_host: str = "localhost"
-    database_port: int = 5432
     
     # Security
     jwt_secret_key: str = "your-jwt-secret-key-change-in-production"
@@ -65,44 +60,36 @@ class Settings(BaseSettings):
     weather_api_key: Optional[str] = None
     map_api_key: Optional[str] = None
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": False,
+        "extra": "ignore"  # This allows extra fields in .env without validation errors
+    }
     
-    @validator("database_url", pre=True)
-    def assemble_db_connection(cls, v, values):
-        """Assemble database URL from components if not provided directly"""
-        if isinstance(v, str) and v:
-            return v
-        
-        return (
-            f"postgresql://{values.get('database_user')}:"
-            f"{values.get('database_password')}@"
-            f"{values.get('database_host')}:"
-            f"{values.get('database_port')}/"
-            f"{values.get('database_name')}"
-        )
-    
-    @validator("cors_origins", pre=True)
+    @field_validator("cors_origins", mode="before")
+    @classmethod
     def parse_cors_origins(cls, v):
         """Parse CORS origins from string or list"""
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",")]
         return v
     
-    @validator("allowed_hosts", pre=True)
+    @field_validator("allowed_hosts", mode="before")
+    @classmethod
     def parse_allowed_hosts(cls, v):
         """Parse allowed hosts from string or list"""
         if isinstance(v, str):
             return [host.strip() for host in v.split(",")]
         return v
     
-    @validator("allowed_extensions", pre=True)
+    @field_validator("allowed_extensions", mode="before")
+    @classmethod
     def parse_allowed_extensions(cls, v):
         """Parse allowed extensions from string or list"""
         if isinstance(v, str):
             return [ext.strip().lower() for ext in v.split(",")]
         return v
+
 
 # Global settings instance
 _settings = None

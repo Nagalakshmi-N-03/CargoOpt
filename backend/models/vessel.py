@@ -3,13 +3,13 @@ Vessel Data Models
 Vessel-related data structures and database models.
 """
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, JSON, ForeignKey, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 
 Base = declarative_base()
@@ -147,15 +147,18 @@ class VesselCompartmentResponse(VesselCompartmentBase):
     position_code: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
-    @validator('position_code', always=True)
-    def generate_position_code(cls, v, values):
+    @field_validator('position_code', mode='before')
+    @classmethod
+    def generate_position_code(cls, v, info):
         """Generate position code from bay, row, tier numbers"""
-        bay = values.get('bay_number', 0)
-        row = values.get('row_number', 0)
-        tier = values.get('tier_number', 0)
+        if v is not None:
+            return v
+        data = info.data
+        bay = data.get('bay_number', 0)
+        row = data.get('row_number', 0)
+        tier = data.get('tier_number', 0)
         return f"{bay:02d}{row:02d}{tier:02d}"
 
 class VesselBase(BaseModel):
@@ -204,6 +207,4 @@ class VesselResponse(VesselBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
-        use_enum_values = True
+    model_config = {"from_attributes": True, "use_enum_values": True}

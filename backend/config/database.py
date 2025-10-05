@@ -6,6 +6,7 @@ Database setup for CargoOpt using SQLAlchemy and asyncpg
 import os
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlalchemy import MetaData
@@ -17,6 +18,9 @@ settings = get_settings()
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Create shared declarative base for all models - THIS IS THE KEY FIX
+Base = declarative_base()
 
 # Database configuration
 class DatabaseConfig:
@@ -68,10 +72,10 @@ async def init_db():
         from backend.api import models
         from backend.models import container, vessel, stowage_plan
         
-        # Create all tables
+        # Create all tables using Base metadata
         async with engine.begin() as conn:
-            # await conn.run_sync(metadata.drop_all)  # Uncomment for development
-            await conn.run_sync(metadata.create_all)
+            # await conn.run_sync(Base.metadata.drop_all)  # Uncomment for development
+            await conn.run_sync(Base.metadata.create_all)
             
         logger.info("Database initialized successfully")
         
@@ -79,7 +83,7 @@ async def init_db():
         logger.error(f"Failed to initialize database: {str(e)}")
         raise
 
-async def get_db() -> AsyncSession:
+async def get_db():
     """
     Dependency function to get database session
     Use with FastAPI Depends()
@@ -101,7 +105,8 @@ async def test_connection():
     """
     try:
         async with AsyncSessionLocal() as session:
-            result = await session.execute("SELECT version()")
+            from sqlalchemy import text
+            result = await session.execute(text("SELECT version()"))
             version = result.scalar()
             logger.info(f"Database connection successful: {version}")
             return True
@@ -125,18 +130,19 @@ async def check_database_health() -> dict:
     Check database health and return status information
     """
     try:
+        from sqlalchemy import text
         async with AsyncSessionLocal() as session:
             # Test basic query
-            await session.execute("SELECT 1")
+            await session.execute(text("SELECT 1"))
             
             # Get database size and connection info
-            result = await session.execute("""
+            result = await session.execute(text("""
                 SELECT 
                     current_database() as database,
                     version() as version,
                     pg_database_size(current_database()) as size_bytes,
                     (SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()) as active_connections
-            """)
+            """))
             
             db_info = result.fetchone()
             

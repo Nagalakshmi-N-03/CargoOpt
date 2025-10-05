@@ -4,14 +4,14 @@ Container-related data structures and database models.
 """
 
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Enum, Text, JSON
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 import enum
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 
-Base = declarative_base()
+# Import shared Base from database config
+from backend.config.database import Base
 
 class ContainerType(enum.Enum):
     """Container types enumeration"""
@@ -132,25 +132,35 @@ class ContainerResponse(ContainerBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
-        use_enum_values = True
+    model_config = {"from_attributes": True, "use_enum_values": True}
 
-    @validator('gross_weight', always=True)
-    def calculate_gross_weight(cls, v, values):
+    @field_validator('gross_weight', mode='before')
+    @classmethod
+    def calculate_gross_weight(cls, v, info):
         """Calculate gross weight for response"""
-        tare_weight = values.get('tare_weight', 0)
-        cargo_weight = values.get('cargo_weight', 0)
+        if v is not None:
+            return v
+        data = info.data
+        tare_weight = data.get('tare_weight', 0)
+        cargo_weight = data.get('cargo_weight', 0) or 0
         return tare_weight + cargo_weight
 
-    @validator('is_overweight', always=True)
-    def check_overweight(cls, v, values):
+    @field_validator('is_overweight', mode='before')
+    @classmethod
+    def check_overweight(cls, v, info):
         """Check if container is overweight"""
-        cargo_weight = values.get('cargo_weight', 0)
-        max_payload = values.get('max_payload', 0)
+        if v is not None:
+            return v
+        data = info.data
+        cargo_weight = data.get('cargo_weight', 0) or 0
+        max_payload = data.get('max_payload', 0)
         return cargo_weight > max_payload
 
-    @validator('is_hazardous', always=True)
-    def check_hazardous(cls, v, values):
+    @field_validator('is_hazardous', mode='before')
+    @classmethod
+    def check_hazardous(cls, v, info):
         """Check if container is hazardous"""
-        return values.get('imdg_class') is not None
+        if v is not None:
+            return v
+        data = info.data
+        return data.get('imdg_class') is not None
