@@ -1,7 +1,8 @@
 // API Service for handling all backend communication
 class ApiService {
     constructor() {
-        this.baseUrl = 'http://localhost:5000/api/v1';
+        // FIXED: Changed from port 5000 to 8000 to match your running backend
+        this.baseUrl = 'http://localhost:8000/api/v1';
         this.defaultHeaders = {
             'Content-Type': 'application/json',
         };
@@ -15,16 +16,19 @@ class ApiService {
         };
 
         try {
+            console.log(`🌐 API Request: ${config.method || 'GET'} ${url}`);
             const response = await fetch(url, config);
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
             }
 
             const data = await response.json();
+            console.log('✅ API Response:', data);
             return { success: true, data };
         } catch (error) {
-            console.error('API request failed:', error);
+            console.error('❌ API request failed:', error);
             return { 
                 success: false, 
                 error: error.message,
