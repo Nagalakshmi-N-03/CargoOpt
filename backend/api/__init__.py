@@ -1,35 +1,31 @@
 """
-API Routes and Models for Cargo Space Optimization
+CargoOpt API Package
+Provides REST API endpoints for the container optimization system.
+
+Modules:
+    - routes: Main API routes and version info
+    - optimization: Container optimization endpoints
+    - containers: Container management endpoints
+    - items: Item management endpoints
+    - history: Optimization history endpoints
+    - exports: Export and report generation endpoints
+    - models: Data models and validation schemas
 """
 
-from .routes import router
-from .models import (
-    ContainerData,
-    CargoItemData,
-    OptimizationRequest,
-    GeneticOptimizationRequest,
-    MultiContainerRequest,
-    BatchOptimizationRequest,
-    PlacementValidationRequest,
-    AlgorithmComparisonRequest,
-    OptimizationResponse,
-    BatchOptimizationResponse,
-    ValidationResponse,
-    ComparisonResponse
+from backend.api.routes import api_bp
+from backend.api.models import (
+    ContainerSchema,
+    ItemSchema,
+    OptimizationRequestSchema,
+    OptimizationResponseSchema,
+    PlacementSchema
 )
 
 __all__ = [
-    'router',
-    'ContainerData',
-    'CargoItemData', 
-    'OptimizationRequest',
-    'GeneticOptimizationRequest',
-    'MultiContainerRequest',
-    'BatchOptimizationRequest',
-    'PlacementValidationRequest',
-    'AlgorithmComparisonRequest',
-    'OptimizationResponse',
-    'BatchOptimizationResponse',
-    'ValidationResponse',
-    'ComparisonResponse'
+    'api_bp',
+    'ContainerSchema',
+    'ItemSchema',
+    'OptimizationRequestSchema',
+    'OptimizationResponseSchema',
+    'PlacementSchema'
 ]

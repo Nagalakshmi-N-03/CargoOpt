@@ -1,606 +1,499 @@
-import logging
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
-import time
-import uuid
-import os
+"""
+CargoOpt Main API Routes
+Provides core API endpoints and version information.
+"""
 
-from backend.config.database import get_db
-from backend.services.optimization import OptimizationService
-from backend.services.data_processor import DataProcessor
-from backend.utils.file_utils import FileUtils
+from flask import Blueprint, jsonify, request, current_app
+from datetime import datetime
+from functools import wraps
 
-from .models import (
-    ContainerData,
-    CargoItemData,
-    OptimizationRequest,
-    GeneticOptimizationRequest,
-    MultiContainerRequest,
-    BatchOptimizationRequest,
-    PlacementValidationRequest,
-    AlgorithmComparisonRequest,
-    OptimizationResponse,
-    BatchOptimizationResponse,
-    ValidationResponse,
-    ComparisonResponse,
-    HealthResponse,
-    AlgorithmInfo,
-    ContainerTypeInfo,
-    AlgorithmType,
-    OptimizationStrategy
-)
+from backend.config.database import db_manager
+from backend.config.settings import Config
+from backend.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-router = APIRouter(prefix="/api/v1", tags=["optimization"])
+# Create main API blueprint
+api_bp = Blueprint('api', __name__)
 
-# Global cache for batch results
-batch_results = {}
 
-@router.get("/health", response_model=HealthResponse)
-async def health_check():
-    """Health check endpoint"""
-    return HealthResponse(
-        status="healthy",
-        service="CargoOpt Backend",
-        version="2.0.0",
-        timestamp=time.time(),
-        features=["optimization", "validation", "comparison", "batch", "export"]
-    )
+# ============================================================================
+# Decorators
+# ============================================================================
 
-@router.get("/algorithms", response_model=List[AlgorithmInfo])
-async def list_algorithms():
-    """List all available optimization algorithms"""
-    return [
-        AlgorithmInfo(
-            name="Basic Packing Algorithm",
-            id="packing",
-            endpoint="/api/v1/optimize/packing",
-            description="First-fit decreasing algorithm for single container packing",
-            best_for="Simple scenarios, fast results",
-            parameters={
-                "max_execution_time": 30,
-                "strategy": ["balanced", "space_first", "stability_first"]
-            }
-        ),
-        AlgorithmInfo(
-            name="Genetic Algorithm",
-            id="genetic",
-            endpoint="/api/v1/optimize/genetic",
-            description="Genetic algorithm for optimized container packing",
-            best_for="Complex scenarios, maximum optimization",
-            parameters={
-                "generations": 100,
-                "population_size": 50,
-                "mutation_rate": 0.1,
-                "crossover_rate": 0.8
-            }
-        ),
-        AlgorithmInfo(
-            name="Stowage Optimizer",
-            id="stowage",
-            endpoint="/api/v1/optimize/stowage",
-            description="Multi-container stowage optimization",
-            best_for="Multiple containers, distribution planning",
-            parameters={
-                "strategy": ["balanced", "space_first", "minimize_containers"],
-                "minimize_containers": True
-            }
-        ),
-        AlgorithmInfo(
-            name="Auto Select",
-            id="auto",
-            endpoint="/api/v1/optimize/auto",
-            description="Automatically selects the best algorithm",
-            best_for="General use, balanced performance",
-            parameters={}
-        )
-    ]
+def require_json(f):
+    """Decorator to require JSON content type for POST/PUT requests."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if request.method in ['POST', 'PUT', 'PATCH']:
+            if not request.is_json:
+                return jsonify({
+                    'error': 'Bad Request',
+                    'message': 'Content-Type must be application/json'
+                }), 400
+        return f(*args, **kwargs)
+    return decorated
 
-@router.post("/optimize/auto", response_model=OptimizationResponse)
-async def optimize_auto(
-    request: OptimizationRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Optimize packing with automatic algorithm selection
-    """
-    try:
-        logger.info(f"Auto optimization request for {len(request.items)} items")
-        
-        optimization_service = OptimizationService(db)
-        
-        result = await optimization_service.optimize_single_container(
-            container_data=request.container.dict(),
-            items_data=[item.dict() for item in request.items],
-            algorithm=request.algorithm.value,
-            strategy=request.strategy.value
-        )
-        
-        return OptimizationResponse(
-            success=result['success'],
-            algorithm=result.get('algorithm', 'auto'),
-            result=result.get('result', {}),
-            execution_time=result.get('result', {}).get('execution_time', 0),
-            message=result.get('message', 'Optimization completed'),
-            warnings=result.get('warnings', [])
-        )
-        
-    except Exception as e:
-        logger.error(f"Auto optimization error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/optimize/packing", response_model=OptimizationResponse)
-async def optimize_packing(
-    request: OptimizationRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Optimize packing using basic first-fit decreasing algorithm
-    """
-    try:
-        logger.info(f"Packing optimization request for {len(request.items)} items")
-        
-        optimization_service = OptimizationService(db)
-        
-        result = await optimization_service.optimize_single_container(
-            container_data=request.container.dict(),
-            items_data=[item.dict() for item in request.items],
-            algorithm="packing",
-            strategy=request.strategy.value
-        )
-        
-        return OptimizationResponse(
-            success=result['success'],
-            algorithm="packing",
-            result=result.get('result', {}),
-            execution_time=result.get('result', {}).get('execution_time', 0),
-            message=result.get('message', 'Packing optimization completed'),
-            warnings=result.get('warnings', [])
-        )
-        
-    except Exception as e:
-        logger.error(f"Packing optimization error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/optimize/genetic", response_model=OptimizationResponse)
-async def optimize_genetic(
-    request: GeneticOptimizationRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Optimize packing using genetic algorithm
-    """
-    try:
-        logger.info(f"Genetic optimization request for {len(request.items)} items")
-        
-        optimization_service = OptimizationService(db)
-        
-        result = await optimization_service.optimize_single_container(
-            container_data=request.container.dict(),
-            items_data=[item.dict() for item in request.items],
-            algorithm="genetic",
-            generations=request.generations,
-            population_size=request.population_size,
-            mutation_rate=request.mutation_rate
-        )
-        
-        return OptimizationResponse(
-            success=result['success'],
-            algorithm="genetic",
-            result=result.get('result', {}),
-            execution_time=result.get('result', {}).get('execution_time', 0),
-            message=result.get('message', 'Genetic optimization completed'),
-            warnings=result.get('warnings', [])
-        )
-        
-    except Exception as e:
-        logger.error(f"Genetic algorithm error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/optimize/stowage", response_model=OptimizationResponse)
-async def optimize_stowage(
-    request: MultiContainerRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Optimize stowage across multiple containers
-    """
-    try:
-        logger.info(f"Stowage optimization request for {len(request.containers)} containers, {len(request.items)} items")
-        
-        optimization_service = OptimizationService(db)
-        
-        result = await optimization_service.optimize_multi_container(
-            containers_data=[container.dict() for container in request.containers],
-            items_data=[item.dict() for item in request.items],
-            strategy=request.strategy.value
-        )
-        
-        return OptimizationResponse(
-            success=result['success'],
-            algorithm="stowage",
-            result=result.get('result', {}),
-            execution_time=result.get('result', {}).get('execution_time', 0),
-            message=result.get('message', 'Stowage optimization completed'),
-            warnings=result.get('warnings', [])
-        )
-        
-    except Exception as e:
-        logger.error(f"Stowage optimization error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/optimize/compare", response_model=ComparisonResponse)
-async def compare_algorithms(
-    request: AlgorithmComparisonRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Compare multiple algorithms on the same problem
-    """
-    try:
-        logger.info(f"Algorithm comparison request for {len(request.algorithms)} algorithms")
-        
-        optimization_service = OptimizationService(db)
-        
-        result = await optimization_service.compare_algorithms(
-            container_data=request.container.dict(),
-            items_data=[item.dict() for item in request.items],
-            algorithms=[algo.value for algo in request.algorithms]
-        )
-        
-        if not result['success']:
-            raise HTTPException(status_code=500, detail=result.get('error', 'Comparison failed'))
-        
-        comparison = result.get('comparison', {})
-        best_algo = comparison.get('best_by_efficiency', 'unknown')
-        
-        return ComparisonResponse(
-            success=True,
-            comparison=comparison,
-            recommendations=comparison.get('recommendation', '').split('. '),
-            best_algorithm=best_algo,
-            results=result.get('results', {})
-        )
-        
-    except Exception as e:
-        logger.error(f"Algorithm comparison error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/optimize/batch", response_model=BatchOptimizationResponse)
-async def batch_optimize(
-    request: BatchOptimizationRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """
-    Process multiple optimization tasks in batch
-    """
-    try:
-        optimization_service = OptimizationService(db)
-        batch_id = request.batch_id or str(uuid.uuid4())
-        
-        # Prepare tasks
-        optimization_tasks = []
-        for i, task in enumerate(request.tasks):
-            optimization_tasks.append({
-                'id': f"task_{i}",
-                'container': task.container.dict(),
-                'items': [item.dict() for item in task.items],
-                'algorithm': task.algorithm.value,
-                'strategy': task.strategy.value
-            })
-        
-        # Store initial batch result
-        batch_results[batch_id] = {
-            'status': 'processing',
-            'total_tasks': len(optimization_tasks),
-            'completed_tasks': 0,
-            'results': [],
-            'started_at': time.time(),
-            'parallel': request.parallel_processing
-        }
-        
-        # Run in background
-        background_tasks.add_task(
-            process_batch_optimization,
-            batch_id,
-            optimization_tasks,
-            optimization_service,
-            request.parallel_processing
-        )
-        
-        return BatchOptimizationResponse(
-            success=True,
-            batch_id=batch_id,
-            total_tasks=len(optimization_tasks),
-            completed_tasks=0,
-            failed_tasks=0,
-            results=[],
-            summary={
-                'status': 'processing',
-                'progress': 0,
-                'estimated_time_remaining': None
-            }
-        )
-        
-    except Exception as e:
-        logger.error(f"Batch optimization error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-async def process_batch_optimization(
-    batch_id: str, 
-    tasks: List[Dict], 
-    optimization_service: OptimizationService,
-    parallel: bool = False
-):
-    """Background task to process batch optimization"""
-    try:
-        results = []
-        
-        for task in tasks:
-            try:
-                result = await optimization_service.optimize_single_container(
-                    container_data=task['container'],
-                    items_data=task['items'],
-                    algorithm=task.get('algorithm', 'auto'),
-                    strategy=task.get('strategy', 'balanced')
-                )
-                results.append(result)
-            except Exception as e:
-                logger.error(f"Batch task {task['id']} failed: {str(e)}")
-                results.append({
-                    'success': False,
-                    'error': str(e),
-                    'task_id': task['id']
-                })
+def validate_pagination(f):
+    """Decorator to validate and extract pagination parameters."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        try:
+            page = request.args.get('page', 1, type=int)
+            per_page = request.args.get('per_page', 20, type=int)
             
-            # Update batch progress
-            batch_results[batch_id]['completed_tasks'] = len(results)
-            batch_results[batch_id]['results'] = results
+            if page < 1:
+                page = 1
+            if per_page < 1:
+                per_page = 20
+            if per_page > 100:
+                per_page = 100
+                
+            kwargs['page'] = page
+            kwargs['per_page'] = per_page
             
-            # Small delay to prevent overwhelming the system
-            if not parallel:
-                import asyncio
-                await asyncio.sleep(0.1)
-        
-        # Finalize batch result
-        batch_results[batch_id]['status'] = 'completed'
-        batch_results[batch_id]['completed_at'] = time.time()
-        
-    except Exception as e:
-        logger.error(f"Batch processing error: {str(e)}")
-        batch_results[batch_id]['status'] = 'failed'
-        batch_results[batch_id]['error'] = str(e)
+        except ValueError:
+            return jsonify({
+                'error': 'Bad Request',
+                'message': 'Invalid pagination parameters'
+            }), 400
+            
+        return f(*args, **kwargs)
+    return decorated
 
-@router.get("/optimize/batch/{batch_id}/status")
-async def get_batch_status(batch_id: str):
-    """Get batch processing status"""
-    if batch_id not in batch_results:
-        raise HTTPException(status_code=404, detail="Batch ID not found")
+
+# ============================================================================
+# API Information Endpoints
+# ============================================================================
+
+@api_bp.route('/', methods=['GET'])
+def api_index():
+    """
+    API root endpoint with version and documentation info.
     
-    batch_data = batch_results[batch_id]
-    
-    successful_tasks = [r for r in batch_data['results'] if r.get('success', False)]
-    failed_tasks = [r for r in batch_data['results'] if not r.get('success', False)]
-    
-    response = {
-        "batch_id": batch_id,
-        "status": batch_data['status'],
-        "progress": {
-            "total_tasks": batch_data['total_tasks'],
-            "completed_tasks": batch_data['completed_tasks'],
-            "percentage": round((batch_data['completed_tasks'] / batch_data['total_tasks']) * 100, 1)
+    Returns:
+        JSON with API information
+    """
+    return jsonify({
+        'name': 'CargoOpt API',
+        'version': '1.0.0',
+        'description': 'AI-Powered Container Optimization System',
+        'endpoints': {
+            'health': '/api/health',
+            'info': '/api/info',
+            'optimize': '/api/optimize',
+            'containers': '/api/containers',
+            'items': '/api/items',
+            'history': '/api/history',
+            'exports': '/api/exports'
         },
-        "summary": {
-            "successful_tasks": len(successful_tasks),
-            "failed_tasks": len(failed_tasks),
-            "success_rate": len(successful_tasks) / batch_data['total_tasks'] if batch_data['total_tasks'] > 0 else 0
+        'documentation': '/api/docs'
+    })
+
+
+@api_bp.route('/info', methods=['GET'])
+def api_info():
+    """
+    Detailed API information including configuration and capabilities.
+    
+    Returns:
+        JSON with detailed API information
+    """
+    return jsonify({
+        'api': {
+            'name': 'CargoOpt API',
+            'version': '1.0.0',
+            'environment': Config.FLASK_ENV
+        },
+        'capabilities': {
+            'optimization_algorithms': ['genetic_algorithm', 'constraint_programming'],
+            'supported_item_types': Config.ITEM_TYPES,
+            'storage_conditions': Config.STORAGE_CONDITIONS,
+            'container_types': Config.CONTAINER_TYPES,
+            'hazard_classes': Config.HAZARD_CLASSES
+        },
+        'limits': {
+            'max_file_size_mb': Config.MAX_CONTENT_LENGTH / (1024 * 1024),
+            'max_computation_time_seconds': Config.MAX_COMPUTATION_TIME,
+            'max_items_per_request': 1000
+        },
+        'optimization_parameters': {
+            'population_size': Config.GA_POPULATION_SIZE,
+            'generations': Config.GA_GENERATIONS,
+            'mutation_rate': Config.GA_MUTATION_RATE,
+            'crossover_rate': Config.GA_CROSSOVER_RATE
+        }
+    })
+
+
+@api_bp.route('/stats', methods=['GET'])
+def api_stats():
+    """
+    Get API usage statistics.
+    
+    Returns:
+        JSON with usage statistics
+    """
+    try:
+        # Get optimization stats
+        opt_stats = db_manager.execute_one("""
+            SELECT 
+                COUNT(*) as total_optimizations,
+                COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+                COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed,
+                AVG(utilization_percentage) as avg_utilization,
+                AVG(computation_time_seconds) as avg_computation_time
+            FROM optimizations
+        """)
+        
+        # Get container stats
+        container_count = db_manager.count('containers')
+        
+        # Get item stats
+        item_stats = db_manager.execute_one("""
+            SELECT 
+                COUNT(*) as total_items,
+                COUNT(DISTINCT item_type) as item_types
+            FROM items
+        """)
+        
+        # Get recent activity
+        recent = db_manager.execute("""
+            SELECT optimization_id, status, utilization_percentage, started_at
+            FROM optimizations
+            ORDER BY started_at DESC
+            LIMIT 5
+        """)
+        
+        return jsonify({
+            'optimizations': {
+                'total': opt_stats['total_optimizations'] if opt_stats else 0,
+                'completed': opt_stats['completed'] if opt_stats else 0,
+                'failed': opt_stats['failed'] if opt_stats else 0,
+                'average_utilization': round(float(opt_stats['avg_utilization'] or 0), 2),
+                'average_computation_time': round(float(opt_stats['avg_computation_time'] or 0), 3)
+            },
+            'containers': {
+                'total': container_count
+            },
+            'items': {
+                'total': item_stats['total_items'] if item_stats else 0,
+                'types': item_stats['item_types'] if item_stats else 0
+            },
+            'recent_optimizations': [
+                {
+                    'id': r['optimization_id'],
+                    'status': r['status'],
+                    'utilization': float(r['utilization_percentage']) if r['utilization_percentage'] else None,
+                    'timestamp': r['started_at'].isoformat() if r['started_at'] else None
+                }
+                for r in (recent or [])
+            ],
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching stats: {e}")
+        return jsonify({
+            'error': 'Internal Server Error',
+            'message': 'Failed to fetch statistics'
+        }), 500
+
+
+# ============================================================================
+# Configuration Endpoints
+# ============================================================================
+
+@api_bp.route('/config', methods=['GET'])
+def get_config():
+    """
+    Get current system configuration (non-sensitive).
+    
+    Returns:
+        JSON with configuration settings
+    """
+    try:
+        configs = db_manager.execute("""
+            SELECT config_key, config_value, data_type, description
+            FROM configurations
+            ORDER BY config_key
+        """)
+        
+        return jsonify({
+            'configurations': [
+                {
+                    'key': c['config_key'],
+                    'value': _parse_config_value(c['config_value'], c['data_type']),
+                    'type': c['data_type'],
+                    'description': c['description']
+                }
+                for c in (configs or [])
+            ]
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching config: {e}")
+        return jsonify({
+            'error': 'Internal Server Error',
+            'message': 'Failed to fetch configuration'
+        }), 500
+
+
+@api_bp.route('/config/<key>', methods=['GET'])
+def get_config_value(key):
+    """
+    Get a specific configuration value.
+    
+    Args:
+        key: Configuration key
+        
+    Returns:
+        JSON with configuration value
+    """
+    try:
+        config = db_manager.execute_one(
+            "SELECT config_value, data_type FROM configurations WHERE config_key = %s",
+            (key,)
+        )
+        
+        if not config:
+            return jsonify({
+                'error': 'Not Found',
+                'message': f'Configuration key "{key}" not found'
+            }), 404
+        
+        return jsonify({
+            'key': key,
+            'value': _parse_config_value(config['config_value'], config['data_type']),
+            'type': config['data_type']
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching config value: {e}")
+        return jsonify({
+            'error': 'Internal Server Error',
+            'message': 'Failed to fetch configuration value'
+        }), 500
+
+
+@api_bp.route('/config/<key>', methods=['PUT'])
+@require_json
+def update_config_value(key):
+    """
+    Update a configuration value.
+    
+    Args:
+        key: Configuration key
+        
+    Returns:
+        JSON with updated configuration
+    """
+    try:
+        data = request.get_json()
+        
+        if 'value' not in data:
+            return jsonify({
+                'error': 'Bad Request',
+                'message': 'Missing "value" field'
+            }), 400
+        
+        # Check if key exists
+        existing = db_manager.execute_one(
+            "SELECT id, data_type FROM configurations WHERE config_key = %s",
+            (key,)
+        )
+        
+        if not existing:
+            return jsonify({
+                'error': 'Not Found',
+                'message': f'Configuration key "{key}" not found'
+            }), 404
+        
+        # Update value
+        db_manager.update(
+            'configurations',
+            {'config_value': str(data['value']), 'updated_at': datetime.utcnow()},
+            'config_key = %s',
+            (key,)
+        )
+        
+        logger.info(f"Configuration updated: {key} = {data['value']}")
+        
+        return jsonify({
+            'message': 'Configuration updated successfully',
+            'key': key,
+            'value': _parse_config_value(str(data['value']), existing['data_type'])
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating config: {e}")
+        return jsonify({
+            'error': 'Internal Server Error',
+            'message': 'Failed to update configuration'
+        }), 500
+
+
+# ============================================================================
+# Validation Endpoint
+# ============================================================================
+
+@api_bp.route('/validate', methods=['POST'])
+@require_json
+def validate_data():
+    """
+    Validate optimization input data without running optimization.
+    
+    Returns:
+        JSON with validation results
+    """
+    from backend.api.models import OptimizationRequestSchema
+    
+    try:
+        data = request.get_json()
+        schema = OptimizationRequestSchema()
+        
+        errors = schema.validate(data)
+        
+        if errors:
+            return jsonify({
+                'valid': False,
+                'errors': errors
+            }), 400
+        
+        # Additional business logic validation
+        warnings = []
+        
+        # Check container capacity vs total item volume
+        if 'container' in data and 'items' in data:
+            container = data['container']
+            items = data['items']
+            
+            container_volume = container['length'] * container['width'] * container['height']
+            total_item_volume = sum(
+                i['length'] * i['width'] * i['height'] * i.get('quantity', 1)
+                for i in items
+            )
+            
+            if total_item_volume > container_volume:
+                warnings.append(
+                    f"Total item volume ({total_item_volume:,} mm³) exceeds "
+                    f"container volume ({container_volume:,} mm³)"
+                )
+            
+            # Check weight
+            container_max_weight = container.get('max_weight', float('inf'))
+            total_weight = sum(i['weight'] * i.get('quantity', 1) for i in items)
+            
+            if total_weight > container_max_weight:
+                warnings.append(
+                    f"Total item weight ({total_weight:.2f} kg) exceeds "
+                    f"container capacity ({container_max_weight:.2f} kg)"
+                )
+        
+        return jsonify({
+            'valid': True,
+            'warnings': warnings,
+            'message': 'Data is valid for optimization'
+        })
+        
+    except Exception as e:
+        logger.error(f"Validation error: {e}")
+        return jsonify({
+            'valid': False,
+            'errors': {'_general': str(e)}
+        }), 400
+
+
+# ============================================================================
+# Database Status Endpoint
+# ============================================================================
+
+@api_bp.route('/db/status', methods=['GET'])
+def db_status():
+    """
+    Get database connection status.
+    
+    Returns:
+        JSON with database status
+    """
+    try:
+        pool_status = db_manager.get_pool_status()
+        connection_ok = db_manager.test_connection()
+        
+        # Get table counts
+        tables = {}
+        for table in ['containers', 'items', 'optimizations', 'placements']:
+            tables[table] = db_manager.count(table)
+        
+        return jsonify({
+            'status': 'connected' if connection_ok else 'disconnected',
+            'pool': pool_status,
+            'tables': tables,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Database status error: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+def _parse_config_value(value: str, data_type: str):
+    """Parse configuration value based on its data type."""
+    if value is None:
+        return None
+        
+    try:
+        if data_type == 'integer':
+            return int(value)
+        elif data_type == 'float':
+            return float(value)
+        elif data_type == 'boolean':
+            return value.lower() in ('true', '1', 'yes')
+        elif data_type == 'json':
+            import json
+            return json.loads(value)
+        else:
+            return value
+    except (ValueError, TypeError):
+        return value
+
+
+def paginate_results(query_func, page: int, per_page: int, **kwargs):
+    """
+    Helper function to paginate query results.
+    
+    Args:
+        query_func: Function that returns query results
+        page: Current page number
+        per_page: Items per page
+        **kwargs: Additional arguments for query function
+        
+    Returns:
+        Dictionary with paginated results and metadata
+    """
+    offset = (page - 1) * per_page
+    
+    results = query_func(limit=per_page, offset=offset, **kwargs)
+    total = query_func(count_only=True, **kwargs)
+    
+    total_pages = (total + per_page - 1) // per_page
+    
+    return {
+        'data': results,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': total,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
         }
     }
-    
-    if batch_data['status'] == 'completed':
-        response['results'] = batch_data['results']
-    
-    elif batch_data['status'] == 'failed':
-        response['error'] = batch_data.get('error', 'Unknown error')
-    
-    return response
-
-@router.post("/validate/data", response_model=ValidationResponse)
-async def validate_data(
-    container: ContainerData,
-    items: List[CargoItemData],
-    db: Session = Depends(get_db)
-):
-    """
-    Validate container and items data before optimization
-    """
-    try:
-        data_processor = DataProcessor(db)
-        
-        container_validation = data_processor.validate_container_data(container.dict())
-        items_validation = data_processor.validate_cargo_items([item.dict() for item in items])
-        
-        is_valid = container_validation['is_valid'] and items_validation['is_valid']
-        
-        issues = []
-        if not container_validation['is_valid']:
-            issues.append(f"Container: {container_validation.get('error', 'Invalid data')}")
-        if not items_validation['is_valid']:
-            issues.append(f"Items: {items_validation.get('error', 'Invalid data')}")
-        
-        return ValidationResponse(
-            success=True,
-            valid=is_valid,
-            metrics={
-                'container': container_validation,
-                'items': items_validation
-            },
-            issues=issues,
-            message="Data validation completed"
-        )
-        
-    except Exception as e:
-        logger.error(f"Data validation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/validate/placement", response_model=ValidationResponse)
-async def validate_placement(
-    request: PlacementValidationRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Validate if placements are valid (no overlaps, within container bounds)
-    """
-    try:
-        optimization_service = OptimizationService(db)
-        
-        result = await optimization_service.validate_optimization(
-            container_data=request.container.dict(),
-            items_data=[item.dict() for item in request.items],
-            placements=[placement.dict() for placement in request.placements]
-        )
-        
-        return ValidationResponse(
-            success=result['success'],
-            valid=result.get('valid', False),
-            metrics=result.get('metrics'),
-            issues=result.get('message', '').split('. ') if not result.get('valid', False) else [],
-            message=result.get('message', 'Placement validation completed')
-        )
-        
-    except Exception as e:
-        logger.error(f"Placement validation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/containers/types", response_model=List[ContainerTypeInfo])
-async def get_container_types():
-    """Get standard container types and dimensions"""
-    standard_containers = [
-        ContainerTypeInfo(
-            name="Standard 20ft Container",
-            length=605.0,
-            width=244.0,
-            height=259.0,
-            max_weight=28200.0,
-            volume=38.3,
-            description="Standard 20-foot dry container"
-        ),
-        ContainerTypeInfo(
-            name="Standard 40ft Container",
-            length=1219.0,
-            width=244.0,
-            height=259.0,
-            max_weight=26700.0,
-            volume=76.3,
-            description="Standard 40-foot dry container"
-        ),
-        ContainerTypeInfo(
-            name="High Cube 40ft Container",
-            length=1219.0,
-            width=244.0,
-            height=289.0,
-            max_weight=26700.0,
-            volume=85.7,
-            description="High cube 40-foot container with extra height"
-        ),
-        ContainerTypeInfo(
-            name="Refrigerated 20ft Container",
-            length=543.0,
-            width=229.0,
-            height=226.0,
-            max_weight=30480.0,
-            volume=28.0,
-            description="20-foot refrigerated container"
-        )
-    ]
-    
-    return standard_containers
-
-@router.post("/export/result")
-async def export_optimization_result(
-    result: Dict[str, Any],
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """
-    Export optimization result to Excel file
-    """
-    try:
-        data_processor = DataProcessor(db)
-        export_id = str(uuid.uuid4())
-        filename = f"exports/optimization_result_{export_id}.xlsx"
-        
-        # Run export in background
-        background_tasks.add_task(
-            data_processor.export_to_csv,
-            result,
-            filename
-        )
-        
-        return {
-            "success": True,
-            "export_id": export_id,
-            "message": "Export started in background",
-            "download_endpoint": f"/api/v1/export/download/{export_id}"
-        }
-        
-    except Exception as e:
-        logger.error(f"Export error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/export/download/{export_id}")
-async def download_export(export_id: str):
-    """
-    Download exported optimization result
-    """
-    filename = f"exports/optimization_result_{export_id}.xlsx"
-    
-    if not os.path.exists(filename):
-        raise HTTPException(status_code=404, detail="Export file not found")
-    
-    from fastapi.responses import FileResponse
-    return FileResponse(
-        filename,
-        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        filename=f"cargo_optimization_{export_id}.xlsx"
-    )
-
-@router.get("/optimize/history")
-async def get_optimization_history(
-    db: Session = Depends(get_db),
-    limit: int = Query(10, ge=1, le=100),
-    algorithm: Optional[AlgorithmType] = None,
-    min_utilization: Optional[float] = Query(None, ge=0, le=1),
-    max_utilization: Optional[float] = Query(None, ge=0, le=1)
-):
-    """Get optimization history with filtering"""
-    try:
-        optimization_service = OptimizationService(db)
-        
-        result = optimization_service.get_optimization_history(
-            limit=limit,
-            algorithm=algorithm.value if algorithm else None
-        )
-        
-        # Apply additional filters
-        if min_utilization is not None or max_utilization is not None:
-            filtered_history = []
-            for item in result['history']:
-                utilization = item['utilization_rate']
-                if min_utilization is not None and utilization < min_utilization:
-                    continue
-                if max_utilization is not None and utilization > max_utilization:
-                    continue
-                filtered_history.append(item)
-            
-            result['history'] = filtered_history
-            result['count'] = len(filtered_history)
-        
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error fetching optimization history: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))

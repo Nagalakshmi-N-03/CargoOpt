@@ -1,21 +1,18 @@
 """
 CargoOpt Backend Package
-Container Vessel Stowage Optimization System
+AI-Powered Container Optimization System
 
-This package contains the backend API, services, and algorithms
-for the CargoOpt optimization system.
+This package provides the core backend functionality including:
+- REST API endpoints for optimization operations
+- Genetic algorithm and constraint programming optimization engines
+- Database models and data access layers
+- Utility functions and helpers
 """
 
-__version__ = "1.0.0"
-__author__ = "CargoOpt Team"
-__description__ = "Container Vessel Stowage Optimization Backend"
+__version__ = '1.0.0'
+__author__ = 'CargoOpt Development Team'
+__email__ = 'support@cargoopt.com'
 
-# Import main components for easier access
-from backend.main import app
-from backend.config.settings import get_settings
+from backend.main import create_app
 
-# Package-level imports
-__all__ = [
-    "app",
-    "get_settings",
-]
+__all__ = ['create_app', '__version__']

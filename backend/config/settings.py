@@ -1,112 +1,166 @@
 """
-Application Settings Configuration
-Environment-based configuration management for CargoOpt
+CargoOpt Configuration Settings
+Centralized configuration management for all application settings.
 """
 
 import os
-from typing import List, Optional
-from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-class Settings(BaseSettings):
-    """Application settings configuration"""
+# Base directory
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+
+class Config:
+    """Base configuration class with default settings."""
     
-    # Application
-    app_name: str = "CargoOpt"
-    app_env: str = "development"
-    debug: bool = False
-    secret_key: str = "your-secret-key-change-in-production"
-    host: str = "0.0.0.0"
-    port: int = 5000
+    # Flask settings
+    FLASK_ENV = os.getenv('FLASK_ENV', 'development')
+    DEBUG = os.getenv('FLASK_DEBUG', 'True').lower() in ('true', '1', 'yes')
+    TESTING = False
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     
-    # API
-    api_v1_prefix: str = "/api/v1"
-    allowed_hosts: List[str] = ["localhost", "127.0.0.1", "0.0.0.0"]
+    # Server settings
+    HOST = os.getenv('API_HOST', '0.0.0.0')
+    PORT = int(os.getenv('API_PORT', 5000))
     
-    # CORS
-    cors_origins: List[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5000",
+    # Database settings
+    DB_HOST = os.getenv('DB_HOST', 'localhost')
+    DB_PORT = int(os.getenv('DB_PORT', 5432))
+    DB_NAME = os.getenv('DB_NAME', 'cargoopt')
+    DB_USER = os.getenv('DB_USER', 'postgres')
+    DB_PASSWORD = os.getenv('DB_PASSWORD', '')
+    DB_POOL_SIZE = int(os.getenv('DB_POOL_SIZE', 5))
+    DB_MAX_OVERFLOW = int(os.getenv('DB_MAX_OVERFLOW', 10))
+    
+    @property
+    def DATABASE_URL(self):
+        return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+    
+    # CORS settings
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
+    
+    # File upload settings
+    MAX_CONTENT_LENGTH = int(os.getenv('MAX_FILE_SIZE', 10 * 1024 * 1024))  # 10MB
+    UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', str(BASE_DIR / 'data' / 'uploads'))
+    EXPORT_FOLDER = os.getenv('EXPORT_FOLDER', str(BASE_DIR / 'data' / 'exports'))
+    ALLOWED_EXTENSIONS = {'json', 'csv', 'xlsx', 'xls'}
+    
+    # Genetic Algorithm settings
+    GA_POPULATION_SIZE = int(os.getenv('GA_POPULATION_SIZE', 100))
+    GA_GENERATIONS = int(os.getenv('GA_GENERATIONS', 50))
+    GA_MUTATION_RATE = float(os.getenv('GA_MUTATION_RATE', 0.15))
+    GA_CROSSOVER_RATE = float(os.getenv('GA_CROSSOVER_RATE', 0.85))
+    GA_TOURNAMENT_SIZE = int(os.getenv('GA_TOURNAMENT_SIZE', 3))
+    GA_ELITE_SIZE = int(os.getenv('GA_ELITE_SIZE', 5))
+    
+    # Optimization settings
+    MAX_COMPUTATION_TIME = int(os.getenv('MAX_COMPUTATION_TIME', 300))  # seconds
+    ENABLE_PARALLEL = os.getenv('ENABLE_PARALLEL', 'True').lower() in ('true', '1', 'yes')
+    NUM_WORKERS = int(os.getenv('NUM_WORKERS', 4))
+    
+    # Constraint weights for fitness function
+    WEIGHT_UTILIZATION = float(os.getenv('WEIGHT_UTILIZATION', 0.4))
+    WEIGHT_STABILITY = float(os.getenv('WEIGHT_STABILITY', 0.25))
+    WEIGHT_CONSTRAINTS = float(os.getenv('WEIGHT_CONSTRAINTS', 0.25))
+    WEIGHT_ACCESSIBILITY = float(os.getenv('WEIGHT_ACCESSIBILITY', 0.1))
+    
+    # Report settings
+    REPORT_DPI = int(os.getenv('REPORT_DPI', 300))
+    REPORT_PAGE_SIZE = os.getenv('REPORT_PAGE_SIZE', 'A4')
+    
+    # Logging settings
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+    LOG_FORMAT = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    LOG_FILE = os.getenv('LOG_FILE', str(BASE_DIR / 'logs' / 'cargoopt.log'))
+    
+    # Cache settings
+    CACHE_TYPE = os.getenv('CACHE_TYPE', 'simple')
+    CACHE_DEFAULT_TIMEOUT = int(os.getenv('CACHE_DEFAULT_TIMEOUT', 300))
+    
+    # Rate limiting
+    RATE_LIMIT_DEFAULT = os.getenv('RATE_LIMIT_DEFAULT', '100/hour')
+    RATE_LIMIT_OPTIMIZATION = os.getenv('RATE_LIMIT_OPTIMIZATION', '10/minute')
+    
+    # Item types configuration
+    ITEM_TYPES = [
+        'glass', 'wood', 'metal', 'plastic', 
+        'electronics', 'textiles', 'food', 'chemicals', 'other'
     ]
     
-    # Database - consolidated fields
-    database_url: str = "postgresql://username:password@localhost:5432/cargoopt"
+    # Storage conditions
+    STORAGE_CONDITIONS = ['standard', 'refrigerated', 'frozen', 'hazardous']
     
-    # Security
-    jwt_secret_key: str = "your-jwt-secret-key-change-in-production"
-    jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 30
+    # Container types
+    CONTAINER_TYPES = [
+        'standard', 'high_cube', 'refrigerated', 
+        'open_top', 'flat_rack', 'tank'
+    ]
     
-    # File Upload
-    max_upload_size: int = 104857600  # 100MB in bytes
-    allowed_extensions: List[str] = ["json", "csv", "xlsx"]
-    
-    # Optimization Parameters
-    max_iterations: int = 1000
-    population_size: int = 100
-    mutation_rate: float = 0.1
-    crossover_rate: float = 0.8
-    
-    # Logging
-    log_level: str = "INFO"
-    log_file: str = "logs/cargoopt.log"
-    
-    # External Services (if needed)
-    weather_api_key: Optional[str] = None
-    map_api_key: Optional[str] = None
-    
-    model_config = {
-        "env_file": ".env",
-        "case_sensitive": False,
-        "extra": "ignore"  # This allows extra fields in .env without validation errors
-    }
-    
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        """Parse CORS origins from string or list"""
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
-    
-    @field_validator("allowed_hosts", mode="before")
-    @classmethod
-    def parse_allowed_hosts(cls, v):
-        """Parse allowed hosts from string or list"""
-        if isinstance(v, str):
-            return [host.strip() for host in v.split(",")]
-        return v
-    
-    @field_validator("allowed_extensions", mode="before")
-    @classmethod
-    def parse_allowed_extensions(cls, v):
-        """Parse allowed extensions from string or list"""
-        if isinstance(v, str):
-            return [ext.strip().lower() for ext in v.split(",")]
-        return v
+    # IMDG hazard classes
+    HAZARD_CLASSES = [
+        '1', '2.1', '2.2', '2.3', '3', '4.1', '4.2', '4.3',
+        '5.1', '5.2', '6.1', '6.2', '7', '8', '9'
+    ]
 
 
-# Global settings instance
-_settings = None
+class DevelopmentConfig(Config):
+    """Development configuration."""
+    DEBUG = True
+    FLASK_ENV = 'development'
+    LOG_LEVEL = 'DEBUG'
+    
+    # Reduced GA parameters for faster iteration
+    GA_POPULATION_SIZE = 50
+    GA_GENERATIONS = 25
 
-def get_settings() -> Settings:
-    """
-    Get application settings instance (singleton pattern)
-    """
-    global _settings
-    if _settings is None:
-        _settings = Settings()
-    return _settings
 
-def reload_settings() -> Settings:
-    """
-    Reload settings from environment (useful for testing)
-    """
-    global _settings
-    _settings = Settings()
-    return _settings
+class ProductionConfig(Config):
+    """Production configuration."""
+    DEBUG = False
+    FLASK_ENV = 'production'
+    LOG_LEVEL = 'WARNING'
+    
+    # Stricter security settings
+    SECRET_KEY = os.getenv('SECRET_KEY')  # Must be set in production
+    
+    # Production GA parameters
+    GA_POPULATION_SIZE = 150
+    GA_GENERATIONS = 100
+    
+    # Production database pool
+    DB_POOL_SIZE = 10
+    DB_MAX_OVERFLOW = 20
+
+
+class TestingConfig(Config):
+    """Testing configuration."""
+    TESTING = True
+    DEBUG = True
+    FLASK_ENV = 'testing'
+    
+    # Use separate test database
+    DB_NAME = os.getenv('TEST_DB_NAME', 'cargoopt_test')
+    
+    # Minimal GA for fast tests
+    GA_POPULATION_SIZE = 10
+    GA_GENERATIONS = 5
+    MAX_COMPUTATION_TIME = 30
+
+
+# Configuration dictionary
+config_by_name = {
+    'development': DevelopmentConfig,
+    'production': ProductionConfig,
+    'testing': TestingConfig,
+    'default': DevelopmentConfig
+}
+
+
+def get_config():
+    """Get configuration based on environment."""
+    env = os.getenv('FLASK_ENV', 'development')
+    return config_by_name.get(env, DevelopmentConfig)

@@ -1,15 +1,16 @@
 """
 CargoOpt Configuration Package
-Configuration settings and database setup for the CargoOpt system.
+Provides configuration management and database connectivity.
 """
 
-from backend.config.settings import get_settings, Settings
-from backend.config.database import init_db, get_db, DatabaseConfig
+from backend.config.settings import Config, DevelopmentConfig, ProductionConfig, TestingConfig
+from backend.config.database import DatabaseManager, db_manager
 
 __all__ = [
-    "get_settings",
-    "Settings", 
-    "init_db",
-    "get_db",
-    "DatabaseConfig"
+    'Config',
+    'DevelopmentConfig', 
+    'ProductionConfig',
+    'TestingConfig',
+    'DatabaseManager',
+    'db_manager'
 ]

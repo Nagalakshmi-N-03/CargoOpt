@@ -1,127 +1,200 @@
-#!/usr/bin/env python3
 """
-Database setup script for CargoOpt
-Creates and initializes the database with sample data
+Database setup script for the Real Estate Management System
+Creates all database tables and optionally adds sample data
 """
-
 import os
-import sys
-import sqlite3
-from pathlib import Path
+from app import create_app, db
+from app.models import User, Property
+from werkzeug.security import generate_password_hash
+from datetime import datetime
 
-def setup_sqlite_database():
-    """Setup SQLite database for development"""
-    print("🛢️  Setting up SQLite database...")
+def init_database():
+    """Initialize the database with tables and default data"""
+    app = create_app()
     
-    # Ensure data directory exists
-    Path("data").mkdir(exist_ok=True)
-    
-    # Create database connection
-    conn = sqlite3.connect('cargoopt.db')
-    cursor = conn.cursor()
-    
-    # Create tables
-    print("📊 Creating database tables...")
-    
-    # Vessels table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS vessels (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            type TEXT NOT NULL,
-            length REAL,
-            width REAL,
-            height REAL,
-            max_weight REAL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Containers table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS containers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            container_id TEXT UNIQUE NOT NULL,
-            type TEXT NOT NULL,
-            length REAL NOT NULL,
-            width REAL NOT NULL,
-            height REAL NOT NULL,
-            weight REAL NOT NULL,
-            destination TEXT,
-            hazardous BOOLEAN DEFAULT FALSE,
-            imdg_code TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Stowage plans table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS stowage_plans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            plan_name TEXT NOT NULL,
-            vessel_id INTEGER,
-            container_data TEXT,
-            optimization_metrics TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (vessel_id) REFERENCES vessels (id)
-        )
-    ''')
-    
-    # Insert sample data
-    print("📝 Inserting sample data...")
-    
-    # Sample vessels
-    vessels = [
-        ('Container Ship A', 'Container', 300.0, 40.0, 25.0, 50000.0),
-        ('Bulk Carrier B', 'Bulk', 250.0, 32.0, 18.0, 35000.0),
-        ('Tanker C', 'Tanker', 280.0, 45.0, 22.0, 60000.0)
-    ]
-    
-    cursor.executemany(
-        'INSERT INTO vessels (name, type, length, width, height, max_weight) VALUES (?, ?, ?, ?, ?, ?)',
-        vessels
-    )
-    
-    # Sample containers
-    containers = [
-        ('CONT001', 'Standard', 20.0, 8.0, 8.5, 20000.0, 'Port A', False, None),
-        ('CONT002', 'Refrigerated', 20.0, 8.0, 8.5, 18000.0, 'Port B', False, None),
-        ('CONT003', 'Hazardous', 20.0, 8.0, 8.5, 15000.0, 'Port C', True, 'IMDG 3.1'),
-        ('CONT004', 'Standard', 40.0, 8.0, 9.5, 30000.0, 'Port A', False, None),
-        ('CONT005', 'Tank', 20.0, 8.0, 8.5, 12000.0, 'Port B', False, None)
-    ]
-    
-    cursor.executemany(
-        'INSERT INTO containers (container_id, type, length, width, height, weight, destination, hazardous, imdg_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        containers
-    )
-    
-    # Commit changes and close connection
-    conn.commit()
-    conn.close()
-    
-    print("✅ Database setup completed successfully!")
-    print("📁 Database file: cargoopt.db")
-
-def main():
-    """Main setup function"""
-    print("🚀 Starting CargoOpt Database Setup...")
-    print("=" * 50)
-    
-    try:
-        # Setup SQLite database
-        setup_sqlite_database()
+    with app.app_context():
+        # Create all database tables
+        print("Creating database tables...")
+        db.create_all()
+        print("✓ Database tables created successfully!")
         
-        print("=" * 50)
-        print("🎉 Database setup completed!")
-        print("\n📋 Next steps:")
-        print("   1. Run: python run.py (to start backend)")
-        print("   2. Run: cd frontend && npm run dev (to start frontend)")
-        print("   3. Open: http://localhost:3000 in your browser")
+        # Check if admin user already exists
+        admin = User.query.filter_by(username='admin').first()
         
-    except Exception as e:
-        print(f"❌ Error during database setup: {e}")
-        sys.exit(1)
+        if not admin:
+            # Create default admin user
+            print("\nCreating default admin user...")
+            admin_user = User(
+                username='admin',
+                email='admin@realestate.com',
+                is_admin=True
+            )
+            admin_user.set_password('admin123')
+            db.session.add(admin_user)
+            
+            try:
+                db.session.commit()
+                print("✓ Admin user created successfully!")
+                print("\n" + "="*50)
+                print("Default Admin Credentials:")
+                print("Username: admin")
+                print("Password: admin123")
+                print("="*50)
+                print("\n⚠️  IMPORTANT: Please change the admin password after first login!")
+            except Exception as e:
+                db.session.rollback()
+                print(f"✗ Error creating admin user: {str(e)}")
+        else:
+            print("\n✓ Admin user already exists.")
+        
+        # Ask if user wants to add sample data
+        add_samples = input("\nDo you want to add sample properties? (y/n): ").strip().lower()
+        
+        if add_samples == 'y':
+            add_sample_data()
 
-if __name__ == "__main__":
-    main()
+def add_sample_data():
+    """Add sample properties to the database"""
+    app = create_app()
+    
+    with app.app_context():
+        # Check if properties already exist
+        if Property.query.count() > 0:
+            print("Sample data already exists in the database.")
+            return
+        
+        print("\nAdding sample properties...")
+        
+        sample_properties = [
+            {
+                'title': 'Luxury Downtown Apartment',
+                'description': 'Beautiful modern apartment in the heart of downtown with stunning city views. Features include hardwood floors, stainless steel appliances, and floor-to-ceiling windows.',
+                'price': 450000.00,
+                'location': 'Downtown, City Center',
+                'property_type': 'Apartment',
+                'bedrooms': 2,
+                'bathrooms': 2,
+                'area': 1200,
+                'is_available': True
+            },
+            {
+                'title': 'Spacious Family Home',
+                'description': 'Perfect family home with large backyard, modern kitchen, and great school district. Recently renovated with new roof and HVAC system.',
+                'price': 650000.00,
+                'location': 'Suburban Area, West Side',
+                'property_type': 'House',
+                'bedrooms': 4,
+                'bathrooms': 3,
+                'area': 2500,
+                'is_available': True
+            },
+            {
+                'title': 'Cozy Studio Apartment',
+                'description': 'Affordable studio apartment perfect for young professionals. Close to public transportation, restaurants, and entertainment.',
+                'price': 180000.00,
+                'location': 'East End, Transit District',
+                'property_type': 'Apartment',
+                'bedrooms': 1,
+                'bathrooms': 1,
+                'area': 550,
+                'is_available': True
+            },
+            {
+                'title': 'Modern Commercial Office Space',
+                'description': 'Prime commercial property in business district. Ideal for startups and small businesses. Includes parking and conference rooms.',
+                'price': 850000.00,
+                'location': 'Business District, North',
+                'property_type': 'Commercial',
+                'bedrooms': 0,
+                'bathrooms': 4,
+                'area': 3500,
+                'is_available': True
+            },
+            {
+                'title': 'Beachfront Condo',
+                'description': 'Stunning beachfront condominium with panoramic ocean views. Resort-style amenities including pool, gym, and concierge service.',
+                'price': 1200000.00,
+                'location': 'Coastal Area, Beach Road',
+                'property_type': 'Condo',
+                'bedrooms': 3,
+                'bathrooms': 2,
+                'area': 1800,
+                'is_available': True
+            },
+            {
+                'title': 'Historic Victorian Home',
+                'description': 'Beautifully restored Victorian home with original features. Large rooms, high ceilings, and period details throughout.',
+                'price': 725000.00,
+                'location': 'Historic District, Old Town',
+                'property_type': 'House',
+                'bedrooms': 5,
+                'bathrooms': 3,
+                'area': 3200,
+                'is_available': False
+            }
+        ]
+        
+        for prop_data in sample_properties:
+            property = Property(**prop_data)
+            db.session.add(property)
+        
+        try:
+            db.session.commit()
+            print(f"✓ Successfully added {len(sample_properties)} sample properties!")
+        except Exception as e:
+            db.session.rollback()
+            print(f"✗ Error adding sample data: {str(e)}")
+
+def reset_database():
+    """Drop all tables and recreate them (WARNING: Deletes all data)"""
+    app = create_app()
+    
+    with app.app_context():
+        confirm = input("\n⚠️  WARNING: This will delete ALL data in the database. Are you sure? (yes/no): ")
+        
+        if confirm.lower() == 'yes':
+            print("\nDropping all tables...")
+            db.drop_all()
+            print("✓ All tables dropped.")
+            
+            print("\nRecreating tables...")
+            db.create_all()
+            print("✓ Database reset complete!")
+            
+            # Create admin user
+            admin_user = User(
+                username='admin',
+                email='admin@realestate.com',
+                is_admin=True
+            )
+            admin_user.set_password('admin123')
+            db.session.add(admin_user)
+            db.session.commit()
+            print("✓ Admin user recreated.")
+        else:
+            print("Database reset cancelled.")
+
+if __name__ == '__main__':
+    print("\n" + "="*50)
+    print("Real Estate Management System - Database Setup")
+    print("="*50 + "\n")
+    
+    print("Select an option:")
+    print("1. Initialize database (first time setup)")
+    print("2. Add sample data only")
+    print("3. Reset database (WARNING: Deletes all data)")
+    
+    choice = input("\nEnter your choice (1-3): ").strip()
+    
+    if choice == '1':
+        init_database()
+    elif choice == '2':
+        add_sample_data()
+    elif choice == '3':
+        reset_database()
+    else:
+        print("Invalid choice. Exiting...")
+    
+    print("\n" + "="*50)
+    print("Setup complete!")
+    print("="*50 + "\n")
