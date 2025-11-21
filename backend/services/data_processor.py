@@ -1,384 +1,696 @@
-import logging
-import json
-import pandas as pd
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-import math
+"""
+Data Processing Service
+Handles data transformation, preprocessing, and format conversions.
+"""
 
-logger = logging.getLogger(__name__)
+import json
+import csv
+import io
+from typing import List, Dict, Any, Optional, Tuple, Union
+from datetime import datetime
+from pathlib import Path
+import numpy as np
+import pandas as pd
+
+from backend.config.settings import Config
+from backend.utils.logger import get_logger
+from backend.utils.file_utils import FileHandler
+
+logger = get_logger(__name__)
+
+
+class DataTransformer:
+    """
+    Handles data transformation and normalization operations.
+    """
+    
+    @staticmethod
+    def normalize_dimensions(item: Dict, unit: str = 'mm') -> Dict:
+        """
+        Normalize item dimensions to standard unit (millimeters).
+        
+        Args:
+            item: Item dictionary with dimensions
+            unit: Current unit of measurement
+            
+        Returns:
+            Item with normalized dimensions
+        """
+        conversion_factors = {
+            'mm': 1,
+            'cm': 10,
+            'm': 1000,
+            'in': 25.4,
+            'ft': 304.8
+        }
+        
+        factor = conversion_factors.get(unit.lower(), 1)
+        
+        normalized = item.copy()
+        
+        if 'length' in item:
+            normalized['length'] = int(item['length'] * factor)
+        if 'width' in item:
+            normalized['width'] = int(item['width'] * factor)
+        if 'height' in item:
+            normalized['height'] = int(item['height'] * factor)
+            
+        return normalized
+    
+    @staticmethod
+    def normalize_weight(item: Dict, unit: str = 'kg') -> Dict:
+        """
+        Normalize item weight to standard unit (kilograms).
+        
+        Args:
+            item: Item dictionary with weight
+            unit: Current unit of measurement
+            
+        Returns:
+            Item with normalized weight
+        """
+        conversion_factors = {
+            'kg': 1,
+            'g': 0.001,
+            'lb': 0.453592,
+            'oz': 0.0283495,
+            'ton': 1000,
+            'tonne': 1000
+        }
+        
+        factor = conversion_factors.get(unit.lower(), 1)
+        
+        normalized = item.copy()
+        
+        if 'weight' in item:
+            normalized['weight'] = float(item['weight'] * factor)
+            
+        return normalized
+    
+    @staticmethod
+    def expand_quantities(items: List[Dict]) -> List[Dict]:
+        """
+        Expand items with quantities > 1 into individual items.
+        
+        Args:
+            items: List of items with quantity field
+            
+        Returns:
+            Expanded list of individual items
+        """
+        expanded = []
+        
+        for idx, item in enumerate(items):
+            quantity = item.get('quantity', 1)
+            
+            for i in range(quantity):
+                expanded_item = item.copy()
+                expanded_item['original_index'] = idx
+                expanded_item['instance'] = i + 1
+                expanded_item['item_id'] = f"{item.get('item_id', f'item_{idx}')}_{i+1}"
+                expanded_item.pop('quantity', None)
+                expanded.append(expanded_item)
+        
+        return expanded
+    
+    @staticmethod
+    def calculate_volume(item: Dict) -> float:
+        """
+        Calculate item volume in cubic meters.
+        
+        Args:
+            item: Item with length, width, height in mm
+            
+        Returns:
+            Volume in m³
+        """
+        length = item.get('length', 0)
+        width = item.get('width', 0)
+        height = item.get('height', 0)
+        
+        return (length * width * height) / 1e9  # mm³ to m³
+    
+    @staticmethod
+    def calculate_density(item: Dict) -> float:
+        """
+        Calculate item density in kg/m³.
+        
+        Args:
+            item: Item with weight and dimensions
+            
+        Returns:
+            Density in kg/m³
+        """
+        volume = DataTransformer.calculate_volume(item)
+        weight = item.get('weight', 0)
+        
+        if volume > 0:
+            return weight / volume
+        return 0
+    
+    @staticmethod
+    def sort_items_by_priority(items: List[Dict], strategy: str = 'default') -> List[Dict]:
+        """
+        Sort items based on packing priority strategy.
+        
+        Args:
+            items: List of items
+            strategy: Sorting strategy ('default', 'volume', 'weight', 'priority')
+            
+        Returns:
+            Sorted list of items
+        """
+        if strategy == 'volume':
+            # Largest volume first
+            return sorted(
+                items,
+                key=lambda x: x['length'] * x['width'] * x['height'],
+                reverse=True
+            )
+        elif strategy == 'weight':
+            # Heaviest first
+            return sorted(items, key=lambda x: x.get('weight', 0), reverse=True)
+        elif strategy == 'priority':
+            # By explicit priority field (lower number = higher priority)
+            return sorted(items, key=lambda x: x.get('priority', 5))
+        else:
+            # Default: priority, then volume, then weight
+            return sorted(
+                items,
+                key=lambda x: (
+                    x.get('priority', 5),
+                    -(x['length'] * x['width'] * x['height']),
+                    -x.get('weight', 0)
+                )
+            )
+    
+    @staticmethod
+    def add_color_coding(items: List[Dict]) -> List[Dict]:
+        """
+        Add color codes to items for visualization.
+        
+        Args:
+            items: List of items
+            
+        Returns:
+            Items with color field added
+        """
+        # Color schemes for different item types
+        type_colors = {
+            'glass': '#87CEEB',      # Sky blue
+            'wood': '#8B4513',       # Saddle brown
+            'metal': '#708090',      # Slate gray
+            'plastic': '#FFB6C1',    # Light pink
+            'electronics': '#4169E1', # Royal blue
+            'textiles': '#DDA0DD',   # Plum
+            'food': '#FFA500',       # Orange
+            'chemicals': '#FF4500',  # Orange red
+            'other': '#A9A9A9'       # Dark gray
+        }
+        
+        # Hazmat colors (priority over type)
+        hazmat_colors = {
+            '1': '#FF0000',   # Explosives - Red
+            '2.1': '#FF6B6B', # Flammable gas - Light red
+            '2.2': '#90EE90', # Non-flammable gas - Light green
+            '2.3': '#8B008B', # Toxic gas - Dark magenta
+            '3': '#FFA500',   # Flammable liquid - Orange
+            '4.1': '#FFD700', # Flammable solid - Gold
+            '4.2': '#FF4500', # Spontaneous combustion - Orange red
+            '4.3': '#4169E1', # Dangerous when wet - Royal blue
+            '5.1': '#FFFF00', # Oxidizer - Yellow
+            '5.2': '#FF8C00', # Organic peroxide - Dark orange
+            '6.1': '#800080', # Toxic - Purple
+            '6.2': '#DC143C', # Infectious - Crimson
+            '7': '#FFFF00',   # Radioactive - Yellow
+            '8': '#000000',   # Corrosive - Black
+            '9': '#808080'    # Miscellaneous - Gray
+        }
+        
+        for item in items:
+            if not item.get('color'):
+                # Check if hazardous
+                hazard_class = item.get('hazard_class')
+                if hazard_class and hazard_class in hazmat_colors:
+                    item['color'] = hazmat_colors[hazard_class]
+                else:
+                    # Use type color
+                    item_type = item.get('item_type', 'other')
+                    item['color'] = type_colors.get(item_type, type_colors['other'])
+        
+        return items
+
 
 class DataProcessor:
-    def __init__(self, db: Session):
-        self.db = db
-        self.logger = logging.getLogger(__name__)
+    """
+    Main data processing service for handling various data operations.
+    """
     
-    def validate_container_data(self, container_data: Dict) -> Dict:
+    def __init__(self, config: Config = None):
         """
-        Validate and normalize container data
-        """
-        try:
-            required_fields = ['length', 'width', 'height', 'max_weight']
-            
-            # Check required fields
-            for field in required_fields:
-                if field not in container_data:
-                    raise ValueError(f"Missing required field: {field}")
-            
-            # Validate dimensions
-            length = float(container_data['length'])
-            width = float(container_data['width'])
-            height = float(container_data['height'])
-            max_weight = float(container_data['max_weight'])
-            
-            if any(dim <= 0 for dim in [length, width, height, max_weight]):
-                raise ValueError("All dimensions and weight must be positive")
-            
-            # Calculate volume
-            volume = length * width * height
-            
-            return {
-                'length': length,
-                'width': width,
-                'height': height,
-                'max_weight': max_weight,
-                'volume': volume,
-                'is_valid': True
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Container data validation failed: {str(e)}")
-            return {
-                'is_valid': False,
-                'error': str(e)
-            }
-    
-    def validate_cargo_items(self, items_data: List[Dict]) -> Dict:
-        """
-        Validate and normalize cargo items data
-        """
-        try:
-            validated_items = []
-            total_volume = 0
-            total_weight = 0
-            item_count = 0
-            
-            required_fields = ['id', 'length', 'width', 'height', 'weight']
-            
-            for item in items_data:
-                # Check required fields
-                for field in required_fields:
-                    if field not in item:
-                        raise ValueError(f"Missing required field in item: {field}")
-                
-                # Validate dimensions
-                length = float(item['length'])
-                width = float(item['width'])
-                height = float(item['height'])
-                weight = float(item['weight'])
-                quantity = int(item.get('quantity', 1))
-                
-                if any(dim <= 0 for dim in [length, width, height, weight]):
-                    raise ValueError(f"Item {item['id']}: All dimensions and weight must be positive")
-                
-                if quantity <= 0:
-                    raise ValueError(f"Item {item['id']}: Quantity must be positive")
-                
-                # Calculate item metrics
-                volume = length * width * height
-                total_volume += volume * quantity
-                total_weight += weight * quantity
-                item_count += quantity
-                
-                validated_item = {
-                    'id': item['id'],
-                    'name': item.get('name', f"Item_{item['id']}"),
-                    'length': length,
-                    'width': width,
-                    'height': height,
-                    'weight': weight,
-                    'quantity': quantity,
-                    'volume': volume,
-                    'fragile': bool(item.get('fragile', False)),
-                    'stackable': bool(item.get('stackable', True)),
-                    'rotation_allowed': bool(item.get('rotation_allowed', True))
-                }
-                
-                validated_items.append(validated_item)
-            
-            return {
-                'items': validated_items,
-                'summary': {
-                    'total_items': item_count,
-                    'total_volume': total_volume,
-                    'total_weight': total_weight,
-                    'unique_items': len(validated_items)
-                },
-                'is_valid': True
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Cargo items validation failed: {str(e)}")
-            return {
-                'is_valid': False,
-                'error': str(e),
-                'items': [],
-                'summary': {}
-            }
-    
-    def calculate_packing_metrics(self, container: Dict, items: List[Dict], placements: List[Dict]) -> Dict:
-        """
-        Calculate comprehensive packing metrics
-        """
-        try:
-            container_volume = container['length'] * container['width'] * container['height']
-            used_volume = 0
-            used_weight = 0
-            packed_items = 0
-            
-            # Calculate volume utilization from placements
-            for placement in placements:
-                dims = placement['dimensions']
-                used_volume += dims[0] * dims[1] * dims[2]
-                packed_items += 1
-            
-            # Calculate weight utilization (simplified)
-            for item in items:
-                if any(p['item_id'] == item['id'] for p in placements):
-                    used_weight += item['weight'] * item['quantity']
-            
-            volume_utilization = used_volume / container_volume if container_volume > 0 else 0
-            weight_utilization = used_weight / container['max_weight'] if container['max_weight'] > 0 else 0
-            
-            # Calculate efficiency score
-            efficiency_score = self._calculate_efficiency_score(
-                volume_utilization, 
-                weight_utilization,
-                packed_items,
-                len(items)
-            )
-            
-            return {
-                'volume_metrics': {
-                    'container_volume': round(container_volume, 2),
-                    'used_volume': round(used_volume, 2),
-                    'available_volume': round(container_volume - used_volume, 2),
-                    'utilization_rate': round(volume_utilization, 4)
-                },
-                'weight_metrics': {
-                    'max_weight': container['max_weight'],
-                    'used_weight': round(used_weight, 2),
-                    'available_weight': round(container['max_weight'] - used_weight, 2),
-                    'utilization_rate': round(weight_utilization, 4)
-                },
-                'item_metrics': {
-                    'total_items': sum(item['quantity'] for item in items),
-                    'packed_items': packed_items,
-                    'packing_rate': round(packed_items / sum(item['quantity'] for item in items), 4) if items else 0
-                },
-                'efficiency_score': round(efficiency_score, 4)
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Metrics calculation failed: {str(e)}")
-            raise
-    
-    def _calculate_efficiency_score(self, volume_util: float, weight_util: float, 
-                                  packed_items: int, total_items: int) -> float:
-        """
-        Calculate overall efficiency score (0-1)
-        """
-        volume_score = volume_util * 0.4  # 40% weight
-        weight_score = weight_util * 0.3  # 30% weight
-        packing_score = (packed_items / total_items) * 0.3 if total_items > 0 else 0  # 30% weight
+        Initialize data processor.
         
-        return volume_score + weight_score + packing_score
+        Args:
+            config: Configuration object
+        """
+        self.config = config or Config()
+        self.transformer = DataTransformer()
+        self.file_handler = FileHandler()
+        
+        logger.info("DataProcessor initialized")
     
-    def generate_packing_report(self, optimization_result: Dict, algorithm: str) -> Dict:
+    def process_optimization_input(
+        self,
+        container_data: Dict,
+        items_data: List[Dict],
+        normalize: bool = True
+    ) -> Tuple[Dict, List[Dict]]:
         """
-        Generate comprehensive packing report
-        """
-        try:
-            metrics = optimization_result.get('metrics', {})
-            placements = optimization_result.get('placements', [])
+        Process and validate optimization input data.
+        
+        Args:
+            container_data: Container specifications
+            items_data: List of items to pack
+            normalize: Whether to normalize units
             
-            report = {
-                'algorithm_used': algorithm,
-                'timestamp': pd.Timestamp.now().isoformat(),
-                'summary': {
-                    'utilization_rate': metrics.get('utilization_rate', 0),
-                    'total_items_packed': metrics.get('total_items_packed', 0),
-                    'total_volume_used': metrics.get('total_volume_used', 0),
-                    'efficiency_score': metrics.get('efficiency_score', 0)
-                },
-                'placement_analysis': self._analyze_placements(placements),
-                'recommendations': self._generate_recommendations(metrics, algorithm)
+        Returns:
+            Tuple of (processed_container, processed_items)
+        """
+        logger.info(f"Processing optimization input: 1 container, {len(items_data)} items")
+        
+        # Process container
+        container = self._process_container(container_data, normalize)
+        
+        # Process items
+        items = self._process_items(items_data, normalize)
+        
+        logger.info(f"Processing complete: {len(items)} items after expansion")
+        
+        return container, items
+    
+    def _process_container(self, container: Dict, normalize: bool = True) -> Dict:
+        """
+        Process container data.
+        
+        Args:
+            container: Container dictionary
+            normalize: Whether to normalize units
+            
+        Returns:
+            Processed container
+        """
+        processed = container.copy()
+        
+        # Normalize dimensions if requested
+        if normalize:
+            unit = container.get('dimension_unit', 'mm')
+            processed = self.transformer.normalize_dimensions(processed, unit)
+            
+            weight_unit = container.get('weight_unit', 'kg')
+            processed = self.transformer.normalize_weight(processed, weight_unit)
+        
+        # Calculate volume
+        processed['volume'] = self.transformer.calculate_volume(processed)
+        
+        # Add defaults
+        if 'container_id' not in processed:
+            processed['container_id'] = f"container_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
+        if 'max_weight' not in processed:
+            processed['max_weight'] = 100000  # Default 100 tons
+        
+        if 'container_type' not in processed:
+            processed['container_type'] = 'standard'
+        
+        return processed
+    
+    def _process_items(self, items: List[Dict], normalize: bool = True) -> List[Dict]:
+        """
+        Process items data.
+        
+        Args:
+            items: List of items
+            normalize: Whether to normalize units
+            
+        Returns:
+            Processed items list
+        """
+        processed = []
+        
+        for idx, item in enumerate(items):
+            item_copy = item.copy()
+            
+            # Add ID if missing
+            if 'item_id' not in item_copy:
+                item_copy['item_id'] = f"item_{idx + 1}"
+            
+            # Normalize dimensions and weight
+            if normalize:
+                unit = item.get('dimension_unit', 'mm')
+                item_copy = self.transformer.normalize_dimensions(item_copy, unit)
+                
+                weight_unit = item.get('weight_unit', 'kg')
+                item_copy = self.transformer.normalize_weight(item_copy, weight_unit)
+            
+            # Calculate derived properties
+            item_copy['volume'] = self.transformer.calculate_volume(item_copy)
+            item_copy['density'] = self.transformer.calculate_density(item_copy)
+            
+            # Add defaults
+            if 'quantity' not in item_copy:
+                item_copy['quantity'] = 1
+            
+            if 'item_type' not in item_copy:
+                item_copy['item_type'] = 'other'
+            
+            if 'fragile' not in item_copy:
+                item_copy['fragile'] = False
+            
+            if 'stackable' not in item_copy:
+                item_copy['stackable'] = True
+            
+            if 'rotation_allowed' not in item_copy:
+                item_copy['rotation_allowed'] = True
+            
+            if 'priority' not in item_copy:
+                item_copy['priority'] = 5
+            
+            processed.append(item_copy)
+        
+        # Expand quantities
+        expanded = self.transformer.expand_quantities(processed)
+        
+        # Add color coding
+        expanded = self.transformer.add_color_coding(expanded)
+        
+        # Sort by priority
+        expanded = self.transformer.sort_items_by_priority(expanded)
+        
+        return expanded
+    
+    def import_from_json(self, file_path: str) -> Dict[str, Any]:
+        """
+        Import data from JSON file.
+        
+        Args:
+            file_path: Path to JSON file
+            
+        Returns:
+            Dictionary with container and items data
+        """
+        logger.info(f"Importing data from JSON: {file_path}")
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            container = data.get('container', {})
+            items = data.get('items', [])
+            
+            logger.info(f"Imported {len(items)} items from JSON")
+            
+            return {
+                'container': container,
+                'items': items,
+                'metadata': data.get('metadata', {})
             }
             
-            return report
-            
         except Exception as e:
-            self.logger.error(f"Report generation failed: {str(e)}")
+            logger.error(f"Error importing JSON: {e}")
             raise
     
-    def _analyze_placements(self, placements: List[Dict]) -> Dict:
+    def import_from_csv(self, file_path: str, is_container: bool = False) -> Union[Dict, List[Dict]]:
         """
-        Analyze placement patterns and characteristics
+        Import data from CSV file.
+        
+        Args:
+            file_path: Path to CSV file
+            is_container: Whether file contains container data (vs items)
+            
+        Returns:
+            Container dict or list of items
         """
-        if not placements:
+        logger.info(f"Importing data from CSV: {file_path}")
+        
+        try:
+            df = pd.read_csv(file_path)
+            
+            if is_container:
+                # First row is container data
+                container = df.iloc[0].to_dict()
+                logger.info("Imported container from CSV")
+                return container
+            else:
+                # All rows are items
+                items = df.to_dict('records')
+                logger.info(f"Imported {len(items)} items from CSV")
+                return items
+                
+        except Exception as e:
+            logger.error(f"Error importing CSV: {e}")
+            raise
+    
+    def import_from_excel(self, file_path: str) -> Dict[str, Any]:
+        """
+        Import data from Excel file.
+        
+        Args:
+            file_path: Path to Excel file
+            
+        Returns:
+            Dictionary with container and items data
+        """
+        logger.info(f"Importing data from Excel: {file_path}")
+        
+        try:
+            # Read container sheet
+            container_df = pd.read_excel(file_path, sheet_name='Container')
+            container = container_df.iloc[0].to_dict()
+            
+            # Read items sheet
+            items_df = pd.read_excel(file_path, sheet_name='Items')
+            items = items_df.to_dict('records')
+            
+            logger.info(f"Imported container and {len(items)} items from Excel")
+            
+            return {
+                'container': container,
+                'items': items
+            }
+            
+        except Exception as e:
+            logger.error(f"Error importing Excel: {e}")
+            raise
+    
+    def export_to_json(self, data: Dict, file_path: str) -> str:
+        """
+        Export data to JSON file.
+        
+        Args:
+            data: Data to export
+            file_path: Output file path
+            
+        Returns:
+            Path to created file
+        """
+        logger.info(f"Exporting data to JSON: {file_path}")
+        
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, default=str)
+            
+            logger.info(f"Data exported successfully to {file_path}")
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Error exporting JSON: {e}")
+            raise
+    
+    def export_to_csv(
+        self,
+        items: List[Dict],
+        file_path: str,
+        columns: Optional[List[str]] = None
+    ) -> str:
+        """
+        Export items to CSV file.
+        
+        Args:
+            items: List of items to export
+            file_path: Output file path
+            columns: Columns to include (None = all)
+            
+        Returns:
+            Path to created file
+        """
+        logger.info(f"Exporting {len(items)} items to CSV: {file_path}")
+        
+        try:
+            df = pd.DataFrame(items)
+            
+            if columns:
+                df = df[columns]
+            
+            df.to_csv(file_path, index=False)
+            
+            logger.info(f"Items exported successfully to {file_path}")
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Error exporting CSV: {e}")
+            raise
+    
+    def export_to_excel(
+        self,
+        data: Dict[str, Any],
+        file_path: str
+    ) -> str:
+        """
+        Export data to Excel file with multiple sheets.
+        
+        Args:
+            data: Dictionary with data to export
+            file_path: Output file path
+            
+        Returns:
+            Path to created file
+        """
+        logger.info(f"Exporting data to Excel: {file_path}")
+        
+        try:
+            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                # Export each key as a separate sheet
+                for sheet_name, sheet_data in data.items():
+                    if isinstance(sheet_data, list):
+                        df = pd.DataFrame(sheet_data)
+                    elif isinstance(sheet_data, dict):
+                        df = pd.DataFrame([sheet_data])
+                    else:
+                        continue
+                    
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+            
+            logger.info(f"Data exported successfully to {file_path}")
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Error exporting Excel: {e}")
+            raise
+    
+    def generate_statistics(self, items: List[Dict]) -> Dict[str, Any]:
+        """
+        Generate statistical summary of items.
+        
+        Args:
+            items: List of items
+            
+        Returns:
+            Dictionary with statistics
+        """
+        if not items:
             return {}
         
-        total_volume = 0
-        rotated_items = 0
-        placement_heights = []
+        df = pd.DataFrame(items)
         
-        for placement in placements:
-            dims = placement['dimensions']
-            total_volume += dims[0] * dims[1] * dims[2]
-            
-            if placement.get('rotated', False):
-                rotated_items += 1
-            
-            placement_heights.append(placement['position'][2] + dims[2])
-        
-        avg_height = sum(placement_heights) / len(placement_heights) if placement_heights else 0
-        max_height = max(placement_heights) if placement_heights else 0
-        
-        return {
-            'total_placements': len(placements),
-            'rotated_items': rotated_items,
-            'rotation_rate': rotated_items / len(placements) if placements else 0,
-            'average_height': round(avg_height, 2),
-            'max_height': round(max_height, 2),
-            'total_placed_volume': round(total_volume, 2)
-        }
-    
-    def _generate_recommendations(self, metrics: Dict, algorithm: str) -> List[str]:
-        """
-        Generate optimization recommendations
-        """
-        recommendations = []
-        
-        utilization = metrics.get('utilization_rate', 0)
-        packed_items = metrics.get('total_items_packed', 0)
-        total_items = metrics.get('total_items', packed_items)
-        
-        if utilization < 0.6:
-            recommendations.append("Consider using a smaller container or adding more items")
-        
-        if utilization > 0.9:
-            recommendations.append("Excellent space utilization achieved")
-        
-        if packed_items < total_items:
-            recommendations.append(f"{total_items - packed_items} items could not be packed. Consider using multiple containers.")
-        
-        if algorithm == "packing" and utilization < 0.7:
-            recommendations.append("Try genetic algorithm for potentially better optimization")
-        
-        if not recommendations:
-            recommendations.append("Good optimization result achieved")
-        
-        return recommendations
-    
-    def export_to_csv(self, optimization_result: Dict, filename: str) -> str:
-        """
-        Export optimization result to CSV
-        """
-        try:
-            placements = optimization_result.get('placements', [])
-            metrics = optimization_result.get('metrics', {})
-            
-            # Create placements DataFrame
-            placements_data = []
-            for placement in placements:
-                placements_data.append({
-                    'item_id': placement['item_id'],
-                    'x_position': placement['position'][0],
-                    'y_position': placement['position'][1],
-                    'z_position': placement['position'][2],
-                    'length': placement['dimensions'][0],
-                    'width': placement['dimensions'][1],
-                    'height': placement['dimensions'][2],
-                    'rotated': placement.get('rotated', False)
-                })
-            
-            df_placements = pd.DataFrame(placements_data)
-            
-            # Create metrics DataFrame
-            metrics_data = [{
-                'utilization_rate': metrics.get('utilization_rate', 0),
-                'total_items_packed': metrics.get('total_items_packed', 0),
-                'total_volume_used': metrics.get('total_volume_used', 0),
-                'total_weight_used': metrics.get('total_weight_used', 0),
-                'algorithm': optimization_result.get('algorithm', 'unknown')
-            }]
-            
-            df_metrics = pd.DataFrame(metrics_data)
-            
-            # Save to CSV
-            with pd.ExcelWriter(filename, engine='openpyxl') as writer:
-                df_placements.to_excel(writer, sheet_name='Placements', index=False)
-                df_metrics.to_excel(writer, sheet_name='Metrics', index=False)
-            
-            return filename
-            
-        except Exception as e:
-            self.logger.error(f"CSV export failed: {str(e)}")
-            raise
-    
-    def compare_algorithms(self, results: Dict[str, Dict]) -> Dict:
-        """
-        Compare results from different algorithms
-        """
-        try:
-            comparison = {}
-            
-            for algo_name, result in results.items():
-                metrics = result.get('metrics', {})
-                comparison[algo_name] = {
-                    'utilization_rate': metrics.get('utilization_rate', 0),
-                    'total_items_packed': metrics.get('total_items_packed', 0),
-                    'total_volume_used': metrics.get('total_volume_used', 0),
-                    'execution_time': result.get('execution_time', 0),
-                    'efficiency_score': metrics.get('efficiency_score', 0)
+        stats = {
+            'total_items': len(items),
+            'total_weight': float(df['weight'].sum()) if 'weight' in df else 0,
+            'total_volume': sum(self.transformer.calculate_volume(item) for item in items),
+            'dimensions': {
+                'length': {
+                    'min': float(df['length'].min()) if 'length' in df else 0,
+                    'max': float(df['length'].max()) if 'length' in df else 0,
+                    'mean': float(df['length'].mean()) if 'length' in df else 0
+                },
+                'width': {
+                    'min': float(df['width'].min()) if 'width' in df else 0,
+                    'max': float(df['width'].max()) if 'width' in df else 0,
+                    'mean': float(df['width'].mean()) if 'width' in df else 0
+                },
+                'height': {
+                    'min': float(df['height'].min()) if 'height' in df else 0,
+                    'max': float(df['height'].max()) if 'height' in df else 0,
+                    'mean': float(df['height'].mean()) if 'height' in df else 0
                 }
-            
-            # Find best algorithm
-            best_utilization = max(comp['utilization_rate'] for comp in comparison.values())
-            best_efficiency = max(comp['efficiency_score'] for comp in comparison.values())
-            fastest = min(comp['execution_time'] for comp in comparison.values())
-            
-            best_algo_util = next(algo for algo, comp in comparison.items() 
-                                if comp['utilization_rate'] == best_utilization)
-            best_algo_eff = next(algo for algo, comp in comparison.items() 
-                               if comp['efficiency_score'] == best_efficiency)
-            fastest_algo = next(algo for algo, comp in comparison.items() 
-                              if comp['execution_time'] == fastest)
-            
-            return {
-                'comparison': comparison,
-                'best_by_utilization': best_algo_util,
-                'best_by_efficiency': best_algo_eff,
-                'fastest': fastest_algo,
-                'recommendation': self._get_algorithm_recommendation(comparison)
+            },
+            'weight': {
+                'min': float(df['weight'].min()) if 'weight' in df else 0,
+                'max': float(df['weight'].max()) if 'weight' in df else 0,
+                'mean': float(df['weight'].mean()) if 'weight' in df else 0
             }
-            
-        except Exception as e:
-            self.logger.error(f"Algorithm comparison failed: {str(e)}")
-            raise
+        }
+        
+        # Count by type
+        if 'item_type' in df:
+            stats['by_type'] = df['item_type'].value_counts().to_dict()
+        
+        # Count hazardous
+        if 'hazard_class' in df:
+            hazmat_count = df['hazard_class'].notna().sum()
+            stats['hazardous_items'] = int(hazmat_count)
+        
+        # Count fragile
+        if 'fragile' in df:
+            stats['fragile_items'] = int(df['fragile'].sum())
+        
+        return stats
     
-    def _get_algorithm_recommendation(self, comparison: Dict) -> str:
+    def validate_data_consistency(
+        self,
+        container: Dict,
+        items: List[Dict]
+    ) -> Tuple[bool, List[str]]:
         """
-        Get algorithm recommendation based on comparison
+        Validate data consistency and feasibility.
+        
+        Args:
+            container: Container data
+            items: List of items
+            
+        Returns:
+            Tuple of (is_valid, list of issues)
         """
-        if not comparison:
-            return "No data available for comparison"
+        issues = []
         
-        best_utilization = max(comp['utilization_rate'] for comp in comparison.values())
-        best_efficiency = max(comp['efficiency_score'] for comp in comparison.values())
+        # Check if total volume exceeds container
+        container_volume = self.transformer.calculate_volume(container)
+        total_item_volume = sum(
+            self.transformer.calculate_volume(item) for item in items
+        )
         
-        if best_utilization > 0.85 and best_efficiency > 0.8:
-            return "All algorithms performed well. Use genetic for complex scenarios, packing for simple ones."
-        elif best_utilization < 0.6:
-            return "Consider reviewing item sizes or container selection"
-        else:
-            return "Good results achieved. Consider genetic algorithm for maximum optimization."
+        if total_item_volume > container_volume:
+            issues.append(
+                f"Total item volume ({total_item_volume:.2f} m³) exceeds "
+                f"container volume ({container_volume:.2f} m³)"
+            )
+        
+        # Check if total weight exceeds capacity
+        total_weight = sum(item.get('weight', 0) for item in items)
+        max_weight = container.get('max_weight', float('inf'))
+        
+        if total_weight > max_weight:
+            issues.append(
+                f"Total item weight ({total_weight:.2f} kg) exceeds "
+                f"container capacity ({max_weight:.2f} kg)"
+            )
+        
+        # Check if any item is larger than container
+        for idx, item in enumerate(items):
+            dims = sorted([item['length'], item['width'], item['height']])
+            container_dims = sorted([
+                container['length'],
+                container['width'],
+                container['height']
+            ])
+            
+            if (dims[0] > container_dims[0] or
+                dims[1] > container_dims[1] or
+                dims[2] > container_dims[2]):
+                issues.append(
+                    f"Item {idx + 1} ({item.get('item_id', 'unknown')}) is too large "
+                    f"for container in at least one dimension"
+                )
+        
+        is_valid = len(issues) == 0
+        
+        return is_valid, issues
