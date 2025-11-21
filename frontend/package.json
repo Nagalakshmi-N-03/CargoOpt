@@ -1,23 +1,74 @@
 {
   "name": "cargoopt-frontend",
   "version": "1.0.0",
-  "description": "CargoOpt Frontend - 3D Cargo Optimization Visualization",
+  "description": "CargoOpt - AI-Powered Container Optimization System Frontend",
   "type": "module",
+  "author": "CargoOpt Development Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cargoopt/cargoopt.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest"
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext js,jsx --fix",
+    "format": "prettier --write \"src/**/*.{js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,json,css,md}\"",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "analyze": "vite-bundle-visualizer"
   },
   "dependencies": {
-    "three": "^0.158.0",
-    "axios": "^1.6.0",
-    "vue": "^3.3.0",
-    "@vitejs/plugin-vue": "^4.0.0",
-    "vite": "^4.4.0"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "axios": "^1.6.2",
+    "three": "^0.159.0",
+    "@react-three/fiber": "^8.15.12",
+    "@react-three/drei": "^9.92.7",
+    "zustand": "^4.4.7",
+    "recharts": "^2.10.3",
+    "date-fns": "^3.0.6",
+    "clsx": "^2.0.0",
+    "react-hot-toast": "^2.4.1",
+    "framer-motion": "^10.16.16",
+    "lucide-react": "^0.294.0",
+    "react-hook-form": "^7.49.2",
+    "zod": "^3.22.4",
+    "@hookform/resolvers": "^3.3.3",
+    "react-dropzone": "^14.2.3",
+    "file-saver": "^2.0.5",
+    "jspdf": "^2.5.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "vitest": "^0.34.0"
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.0.8",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "prettier": "^3.1.1",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.4.0",
+    "vitest": "^1.1.0",
+    "@vitest/ui": "^1.1.0",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/user-event": "^14.5.1",
+    "jsdom": "^23.0.1",
+    "vite-bundle-visualizer": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   },
   "browserslist": {
     "production": [

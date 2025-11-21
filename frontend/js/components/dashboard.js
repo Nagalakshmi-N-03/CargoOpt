@@ -1,645 +1,473 @@
-import { VisualizationService } from '../services/visualization.js';
+/**
+ * CargoOpt Dashboard Component
+ * Main dashboard with history and statistics
+ */
 
 export class Dashboard {
-    constructor() {
-        this.visualizationService = new VisualizationService();
-        this.currentOptimizationResult = null;
-        this.isLoading = false;
+  constructor(options = {}) {
+    this.containerId = options.containerId || 'dashboard';
+    this.onNewOptimization = options.onNewOptimization || (() => {});
+    this.onViewResult = options.onViewResult || (() => {});
+    this.onDeleteResult = options.onDeleteResult || (() => {});
+    
+    this.container = document.getElementById(this.containerId);
+    this.history = [];
+    this.stats = null;
+    
+    this.init();
+  }
+  
+  init() {
+    this.render();
+    this.attachEventListeners();
+  }
+  
+  render() {
+    this.container.innerHTML = `
+      <div class="dashboard-container">
+        <div class="dashboard-header">
+          <div class="dashboard-title">
+            <h1><i class="fas fa-cubes"></i> CargoOpt Dashboard</h1>
+            <p class="text-muted">AI-Powered Container Optimization System</p>
+          </div>
+          <button class="btn btn-primary btn-lg" id="new-optimization-btn">
+            <i class="fas fa-plus"></i> New Optimization
+          </button>
+        </div>
         
-        this.init();
-    }
-
-    init() {
-        this.bindEvents();
-        this.loadSampleData();
-        this.setupRealTimeUpdates();
-    }
-
-    bindEvents() {
-        // Optimization controls
-        document.getElementById('run-optimization')?.addEventListener('click', () => this.runOptimization());
-        document.getElementById('reset-view')?.addEventListener('click', () => this.resetView());
-        document.getElementById('export-results')?.addEventListener('click', () => this.exportResults());
+        <div class="dashboard-stats">
+          ${this.renderStatsCards()}
+        </div>
         
-        // View controls
-        document.getElementById('toggle-3d-view')?.addEventListener('click', () => this.toggle3DView());
-        document.getElementById('toggle-labels')?.addEventListener('click', () => this.toggleLabels());
-        document.getElementById('toggle-animation')?.addEventListener('click', () => this.toggleAnimation());
-        
-        // Filter controls
-        document.getElementById('filter-vehicle')?.addEventListener('change', (e) => this.filterByVehicle(e.target.value));
-        document.getElementById('filter-container-type')?.addEventListener('change', (e) => this.filterByContainerType(e.target.value));
-        document.getElementById('search-containers')?.addEventListener('input', (e) => this.searchContainers(e.target.value));
-        
-        // Container selection
-        document.addEventListener('containerSelected', (e) => this.onContainerSelected(e.detail));
-        document.addEventListener('containerFocused', (e) => this.onContainerFocused(e.detail));
-        
-        // Vehicle selection
-        document.addEventListener('vehicleSelected', (e) => this.onVehicleSelected(e.detail));
-    }
-
-    async runOptimization() {
-        this.setLoadingState(true);
-        
-        try {
-            const containers = this.getContainerData();
-            const vehicles = this.getVehicleData();
-            const constraints = this.getConstraintData();
-            
-            const result = await this.visualizationService.runOptimization({
-                containers,
-                vehicles,
-                constraints,
-                distance: parseFloat(document.getElementById('distance-input')?.value || 100)
-            });
-            
-            this.currentOptimizationResult = result;
-            this.displayResults(result);
-            this.updateVisualization(result);
-            this.updateMetrics(result);
-            
-        } catch (error) {
-            this.showError('Optimization failed: ' + error.message);
-        } finally {
-            this.setLoadingState(false);
-        }
-    }
-
-    displayResults(result) {
-        this.updateSummaryPanel(result);
-        this.updateAssignmentsTable(result);
-        this.updateEmissionStats(result);
-        this.updateUtilizationCharts(result);
-    }
-
-    updateSummaryPanel(result) {
-        const summaryElement = document.getElementById('optimization-summary');
-        if (!summaryElement) return;
-
-        summaryElement.innerHTML = `
-            <div class="summary-grid">
-                <div class="summary-item">
-                    <div class="summary-value">${result.vehicle_count || 0}</div>
-                    <div class="summary-label">Vehicles Used</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-value">${result.total_containers || 0}</div>
-                    <div class="summary-label">Containers</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-value">${result.utilization ? result.utilization.toFixed(1) + '%' : 'N/A'}</div>
-                    <div class="summary-label">Utilization</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-value">${result.total_emissions ? result.total_emissions.toFixed(2) + ' kg' : 'N/A'}</div>
-                    <div class="summary-label">CO₂ Emissions</div>
-                </div>
+        <div class="dashboard-content">
+          <div class="dashboard-section">
+            <div class="section-header">
+              <h2>Recent Optimizations</h2>
+              <div class="section-actions">
+                <button class="btn btn-secondary btn-sm" id="refresh-btn">
+                  <i class="fas fa-sync"></i> Refresh
+                </button>
+                <select id="filter-status" class="form-input-sm">
+                  <option value="all">All Status</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                  <option value="running">Running</option>
+                </select>
+              </div>
             </div>
-        `;
-    }
-
-    updateAssignmentsTable(result) {
-        const tableElement = document.getElementById('assignments-table');
-        if (!tableElement || !result.assignments) return;
-
-        let tableHTML = `
-            <table class="assignments-table">
-                <thead>
-                    <tr>
-                        <th>Vehicle</th>
-                        <th>Containers</th>
-                        <th>Total Weight</th>
-                        <th>Utilization</th>
-                        <th>Emissions</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        Object.entries(result.assignments).forEach(([vehicleId, containerIds]) => {
-            const vehicle = result.vehicles?.find(v => v.id === vehicleId) || {};
-            const containers = result.containers?.filter(c => containerIds.includes(c.id)) || [];
-            const totalWeight = containers.reduce((sum, c) => sum + (c.weight || 0), 0);
-            const utilization = vehicle.max_weight ? (totalWeight / vehicle.max_weight * 100) : 0;
-            const emissions = containers.reduce((sum, c) => sum + (c.weight || 0) * (vehicle.emission_factor || 0) * 100, 0);
-
-            tableHTML += `
-                <tr data-vehicle-id="${vehicleId}">
-                    <td>
-                        <strong>${vehicle.type || vehicleId}</strong>
-                        <br><small>Max: ${vehicle.max_weight || 0} kg</small>
-                    </td>
-                    <td>
-                        <div class="container-list">
-                            ${containers.map(c => `
-                                <span class="container-tag" data-container-id="${c.id}">
-                                    ${c.name || c.id}
-                                </span>
-                            `).join('')}
-                        </div>
-                    </td>
-                    <td>${totalWeight.toFixed(1)} kg</td>
-                    <td>
-                        <div class="utilization-bar">
-                            <div class="utilization-fill" style="width: ${utilization}%"></div>
-                            <span class="utilization-text">${utilization.toFixed(1)}%</span>
-                        </div>
-                    </td>
-                    <td>${emissions.toFixed(2)} kg</td>
-                    <td>
-                        <button class="btn-sm btn-view" onclick="dashboard.highlightVehicle('${vehicleId}')">
-                            View
-                        </button>
-                    </td>
-                </tr>
-            `;
-        });
-
-        tableHTML += '</tbody></table>';
-        tableElement.innerHTML = tableHTML;
-
-        // Add click handlers for container tags
-        tableElement.querySelectorAll('.container-tag').forEach(tag => {
-            tag.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const containerId = tag.getAttribute('data-container-id');
-                this.highlightContainer(containerId);
-            });
-        });
-    }
-
-    updateEmissionStats(result) {
-        const emissionsElement = document.getElementById('emission-stats');
-        if (!emissionsElement) return;
-
-        const totalEmissions = result.total_emissions || 0;
-        const equivalentMetrics = this.calculateEquivalentMetrics(totalEmissions);
-
-        emissionsElement.innerHTML = `
-            <div class="emission-metrics">
-                <div class="emission-item">
-                    <div class="emission-icon">🚗</div>
-                    <div class="emission-value">${equivalentMetrics.car_km.toFixed(0)} km</div>
-                    <div class="emission-label">Car Distance Equivalent</div>
-                </div>
-                <div class="emission-item">
-                    <div class="emission-icon">🌳</div>
-                    <div class="emission-value">${equivalentMetrics.trees.toFixed(1)} trees</div>
-                    <div class="emission-label">Annual Tree Absorption</div>
-                </div>
-                <div class="emission-item">
-                    <div class="emission-icon">⛽</div>
-                    <div class="emission-value">${equivalentMetrics.gasoline.toFixed(1)} L</div>
-                    <div class="emission-label">Gasoline Equivalent</div>
-                </div>
-                <div class="emission-item">
-                    <div class="emission-icon">📱</div>
-                    <div class="emission-value">${equivalentMetrics.phone_charges.toFixed(0)}</div>
-                    <div class="emission-label">Phone Charges</div>
-                </div>
-            </div>
-        `;
-    }
-
-    calculateEquivalentMetrics(emissionsKg) {
-        return {
-            car_km: emissionsKg * 10, // Average car: 0.2 kg CO2 per km
-            trees: emissionsKg * 0.02, // One tree absorbs ~50 kg CO2 per year
-            gasoline: emissionsKg * 0.43, // 1L gasoline ≈ 2.3 kg CO2
-            phone_charges: emissionsKg * 121 // Based on average smartphone energy use
-        };
-    }
-
-    updateUtilizationCharts(result) {
-        // Initialize or update charts for vehicle utilization
-        this.updateVehicleUtilizationChart(result);
-        this.updateWeightDistributionChart(result);
-    }
-
-    updateVehicleUtilizationChart(result) {
-        const chartElement = document.getElementById('utilization-chart');
-        if (!chartElement) return;
-
-        // Simple bar chart implementation
-        // In a real app, you might use Chart.js or similar
-        const assignments = result.assignments || {};
-        const vehicles = result.vehicles || [];
-        
-        let chartHTML = '<div class="utilization-chart">';
-        
-        Object.entries(assignments).forEach(([vehicleId, containerIds]) => {
-            const vehicle = vehicles.find(v => v.id === vehicleId);
-            if (!vehicle) return;
             
-            const containers = result.containers?.filter(c => containerIds.includes(c.id)) || [];
-            const totalWeight = containers.reduce((sum, c) => sum + (c.weight || 0), 0);
-            const utilization = vehicle.max_weight ? (totalWeight / vehicle.max_weight * 100) : 0;
+            <div class="history-list" id="history-list">
+              ${this.renderHistoryList()}
+            </div>
+          </div>
+          
+          <div class="dashboard-sidebar">
+            <div class="sidebar-section">
+              <h3>Quick Stats</h3>
+              <div id="quick-stats">
+                ${this.renderQuickStats()}
+              </div>
+            </div>
             
-            chartHTML += `
-                <div class="chart-bar">
-                    <div class="bar-label">${vehicle.type || vehicleId}</div>
-                    <div class="bar-container">
-                        <div class="bar-fill" style="width: ${utilization}%"></div>
-                        <div class="bar-text">${utilization.toFixed(1)}%</div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        chartHTML += '</div>';
-        chartElement.innerHTML = chartHTML;
-    }
-
-    updateWeightDistributionChart(result) {
-        // Implementation for weight distribution chart
-        const chartElement = document.getElementById('weight-chart');
-        if (!chartElement) return;
-
-        // Simple implementation - extend with proper chart library
-        chartElement.innerHTML = '<p>Weight distribution visualization</p>';
-    }
-
-    updateVisualization(result) {
-        if (window.CargoOpt3D && window.CargoOpt3D.loadOptimizationResult) {
-            window.CargoOpt3D.loadOptimizationResult(result);
-        }
-    }
-
-    updateMetrics(result) {
-        // Update real-time metrics display
-        this.updatePerformanceMetrics(result);
-        this.updateEnvironmentalImpact(result);
-    }
-
-    updatePerformanceMetrics(result) {
-        const metricsElement = document.getElementById('performance-metrics');
-        if (!metricsElement) return;
-
-        const assignments = result.assignments || {};
-        const totalContainers = result.total_containers || 0;
-        const vehicleCount = Object.keys(assignments).length;
-
-        metricsElement.innerHTML = `
-            <div class="metrics-grid">
-                <div class="metric-card">
-                    <h4>Efficiency</h4>
-                    <div class="metric-value">${((totalContainers / vehicleCount) || 0).toFixed(1)}</div>
-                    <div class="metric-label">Containers per Vehicle</div>
-                </div>
-                <div class="metric-card">
-                    <h4>Capacity Usage</h4>
-                    <div class="metric-value">${(result.utilization || 0).toFixed(1)}%</div>
-                    <div class="metric-label">Average Utilization</div>
-                </div>
-                <div class="metric-card">
-                    <h4>Cost Savings</h4>
-                    <div class="metric-value">${this.calculateCostSavings(result)}%</div>
-                    <div class="metric-label">vs. Baseline</div>
-                </div>
+            <div class="sidebar-section">
+              <h3>Performance Chart</h3>
+              <div id="performance-chart">
+                ${this.renderPerformanceChart()}
+              </div>
             </div>
-        `;
-    }
-
-    calculateCostSavings(result) {
-        // Simplified cost savings calculation
-        const baselineEmissions = (result.total_containers || 0) * 100 * 0.00015 * 100; // Conservative baseline
-        const optimizedEmissions = result.total_emissions || baselineEmissions;
-        const savings = ((baselineEmissions - optimizedEmissions) / baselineEmissions) * 100;
-        return Math.max(0, savings).toFixed(1);
-    }
-
-    updateEnvironmentalImpact(result) {
-        const impactElement = document.getElementById('environmental-impact');
-        if (!impactElement) return;
-
-        const totalEmissions = result.total_emissions || 0;
-        const equivalentMetrics = this.calculateEquivalentMetrics(totalEmissions);
-
-        impactElement.innerHTML = `
-            <div class="impact-stats">
-                <div class="impact-item">
-                    <span class="impact-value">${totalEmissions.toFixed(2)} kg CO₂</span>
-                    <span class="impact-label">Total Emissions</span>
-                </div>
-                <div class="impact-item">
-                    <span class="impact-value">${equivalentMetrics.car_km.toFixed(0)} km</span>
-                    <span class="impact-label">Equivalent Car Distance</span>
-                </div>
-                <div class="impact-item">
-                    <span class="impact-value">${equivalentMetrics.trees.toFixed(1)}</span>
-                    <span class="impact-label">Trees Needed to Absorb</span>
-                </div>
-            </div>
-        `;
-    }
-
-    highlightContainer(containerId) {
-        if (window.CargoOpt3D && window.CargoOpt3D.scene) {
-            window.CargoOpt3D.scene.highlightContainer(containerId);
-        }
-        
-        // Update UI to show container details
-        this.showContainerDetails(containerId);
-    }
-
-    highlightVehicle(vehicleId) {
-        if (window.CargoOpt3D && window.CargoOpt3D.scene) {
-            window.CargoOpt3D.scene.highlightVehicle(vehicleId);
-        }
-        
-        // Update UI to show vehicle details
-        this.showVehicleDetails(vehicleId);
-    }
-
-    showContainerDetails(containerId) {
-        const container = this.currentOptimizationResult?.containers?.find(c => c.id === containerId);
-        if (!container) return;
-
-        const detailsElement = document.getElementById('container-details');
-        if (!detailsElement) return;
-
-        detailsElement.innerHTML = `
-            <div class="container-details">
-                <h4>${container.name || container.id}</h4>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <label>Dimensions:</label>
-                        <span>${container.length} × ${container.width} × ${container.height} m</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Weight:</label>
-                        <span>${container.weight} kg</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Type:</label>
-                        <span>${container.type || 'Standard'}</span>
-                    </div>
-                    ${container.hazard_class ? `
-                    <div class="detail-item">
-                        <label>Hazard Class:</label>
-                        <span class="hazard-warning">${container.hazard_class}</span>
-                    </div>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-        
-        detailsElement.style.display = 'block';
-    }
-
-    showVehicleDetails(vehicleId) {
-        const vehicle = this.currentOptimizationResult?.vehicles?.find(v => v.id === vehicleId);
-        if (!vehicle) return;
-
-        const detailsElement = document.getElementById('vehicle-details');
-        if (!detailsElement) return;
-
-        const assignments = this.currentOptimizationResult?.assignments?.[vehicleId] || [];
-        const containers = this.currentOptimizationResult?.containers?.filter(c => assignments.includes(c.id)) || [];
-        const totalWeight = containers.reduce((sum, c) => sum + (c.weight || 0), 0);
-        const utilization = vehicle.max_weight ? (totalWeight / vehicle.max_weight * 100) : 0;
-
-        detailsElement.innerHTML = `
-            <div class="vehicle-details">
-                <h4>${vehicle.type || vehicle.id}</h4>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <label>Max Weight:</label>
-                        <span>${vehicle.max_weight} kg</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Current Load:</label>
-                        <span>${totalWeight} kg (${utilization.toFixed(1)}%)</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Containers:</label>
-                        <span>${containers.length}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Emission Factor:</label>
-                        <span>${vehicle.emission_factor} kg/km·kg</span>
-                    </div>
-                </div>
-                <div class="containers-list">
-                    <h5>Assigned Containers:</h5>
-                    ${containers.map(c => `
-                        <div class="container-item" onclick="dashboard.highlightContainer('${c.id}')">
-                            ${c.name || c.id} (${c.weight} kg)
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-        
-        detailsElement.style.display = 'block';
-    }
-
-    onContainerSelected(detail) {
-        this.showContainerDetails(detail.containerId);
-    }
-
-    onContainerFocused(detail) {
-        this.highlightContainer(detail.containerId);
-    }
-
-    onVehicleSelected(detail) {
-        this.showVehicleDetails(detail.vehicleId);
-    }
-
-    resetView() {
-        if (window.CargoOpt3D && window.CargoOpt3D.scene) {
-            window.CargoOpt3D.scene.resetCamera();
-        }
-        
-        // Clear selections
-        document.getElementById('container-details').style.display = 'none';
-        document.getElementById('vehicle-details').style.display = 'none';
-    }
-
-    toggle3DView() {
-        const toggleBtn = document.getElementById('toggle-3d-view');
-        const is3D = toggleBtn.classList.toggle('active');
-        
-        // Toggle between 2D and 3D views
-        if (window.CargoOpt3D && window.CargoOpt3D.scene) {
-            // Implementation depends on your 2D/3D toggle logic
-            console.log('Toggle 3D view:', is3D);
-        }
-    }
-
-    toggleLabels() {
-        const toggleBtn = document.getElementById('toggle-labels');
-        const showLabels = toggleBtn.classList.toggle('active');
-        
-        // Toggle container labels in visualization
-        if (window.CargoOpt3D && window.CargoOpt3D.scene) {
-            // Implementation for label toggling
-            console.log('Toggle labels:', showLabels);
-        }
-    }
-
-    toggleAnimation() {
-        const toggleBtn = document.getElementById('toggle-animation');
-        const animate = toggleBtn.classList.toggle('active');
-        
-        if (window.CargoOpt3D && window.CargoOpt3D.scene) {
-            window.CargoOpt3D.scene.toggleAnimation();
-        }
-    }
-
-    filterByVehicle(vehicleId) {
-        if (!vehicleId) {
-            // Show all
-            this.resetFilters();
-            return;
-        }
-        
-        // Filter visualization to show only selected vehicle
-        this.highlightVehicle(vehicleId);
-    }
-
-    filterByContainerType(type) {
-        if (!type) {
-            this.resetFilters();
-            return;
-        }
-        
-        // Filter containers by type in visualization
-        console.log('Filter by container type:', type);
-    }
-
-    searchContainers(query) {
-        if (!query) {
-            this.resetFilters();
-            return;
-        }
-        
-        // Search and highlight matching containers
-        const containers = this.currentOptimizationResult?.containers || [];
-        const matchingContainers = containers.filter(c => 
-            c.name?.toLowerCase().includes(query.toLowerCase()) || 
-            c.id.toLowerCase().includes(query.toLowerCase())
-        );
-        
-        matchingContainers.forEach(container => {
-            this.highlightContainer(container.id);
-        });
-    }
-
-    resetFilters() {
-        // Reset all filters and show everything
-        document.getElementById('filter-vehicle').value = '';
-        document.getElementById('filter-container-type').value = '';
-        document.getElementById('search-containers').value = '';
-        
-        // Reset visualization highlights
-        if (window.CargoOpt3D && window.CargoOpt3D.scene) {
-            // Implementation to reset highlights
-        }
-    }
-
-    async exportResults() {
-        if (!this.currentOptimizationResult) {
-            this.showError('No optimization results to export');
-            return;
-        }
-
-        try {
-            const format = document.getElementById('export-format')?.value || 'json';
-            const result = await this.visualizationService.exportResults(this.currentOptimizationResult, format);
             
-            // Create download link
-            const blob = new Blob([result.data], { type: result.contentType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = result.filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            this.showSuccess('Results exported successfully');
-        } catch (error) {
-            this.showError('Export failed: ' + error.message);
-        }
+            <div class="sidebar-section">
+              <h3>Getting Started</h3>
+              <ul class="help-list">
+                <li>
+                  <i class="fas fa-box"></i>
+                  Define container dimensions
+                </li>
+                <li>
+                  <i class="fas fa-cubes"></i>
+                  Add items to pack
+                </li>
+                <li>
+                  <i class="fas fa-magic"></i>
+                  Run optimization
+                </li>
+                <li>
+                  <i class="fas fa-chart-bar"></i>
+                  View results in 3D
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  renderStatsCards() {
+    return `
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-calculator"></i>
+        </div>
+        <div class="stat-content">
+          <h3 id="total-optimizations">--</h3>
+          <p>Total Optimizations</p>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-percentage"></i>
+        </div>
+        <div class="stat-content">
+          <h3 id="avg-utilization">--</h3>
+          <p>Average Utilization</p>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+          <h3 id="avg-time">--</h3>
+          <p>Average Time</p>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+          <h3 id="success-rate">--</h3>
+          <p>Success Rate</p>
+        </div>
+      </div>
+    `;
+  }
+  
+  renderHistoryList() {
+    if (this.history.length === 0) {
+      return `
+        <div class="empty-state">
+          <i class="fas fa-inbox fa-3x"></i>
+          <h3>No optimizations yet</h3>
+          <p>Click "New Optimization" to get started</p>
+        </div>
+      `;
     }
-
-    setLoadingState(loading) {
-        this.isLoading = loading;
-        const loader = document.getElementById('loading-indicator');
-        const runBtn = document.getElementById('run-optimization');
-        
-        if (loader) loader.style.display = loading ? 'block' : 'none';
-        if (runBtn) runBtn.disabled = loading;
+    
+    return `
+      <div class="history-table">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Date</th>
+              <th>Container</th>
+              <th>Items</th>
+              <th>Utilization</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.history.map(item => this.renderHistoryItem(item)).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+  
+  renderHistoryItem(item) {
+    const statusClass = {
+      completed: 'status-success',
+      failed: 'status-error',
+      running: 'status-warning',
+      pending: 'status-info'
+    }[item.status] || '';
+    
+    const statusIcon = {
+      completed: 'fa-check-circle',
+      failed: 'fa-times-circle',
+      running: 'fa-spinner fa-spin',
+      pending: 'fa-clock'
+    }[item.status] || 'fa-question-circle';
+    
+    return `
+      <tr data-id="${item.optimization_id}">
+        <td>
+          <code class="text-sm">${item.optimization_id.substring(0, 8)}...</code>
+        </td>
+        <td>${this.formatDate(item.started_at)}</td>
+        <td>${item.container_size || 'N/A'}</td>
+        <td>${item.items_packed || 0} / ${item.total_items || 0}</td>
+        <td>
+          <div class="utilization-bar">
+            <div class="utilization-fill" style="width: ${item.utilization || 0}%"></div>
+            <span class="utilization-text">${(item.utilization || 0).toFixed(1)}%</span>
+          </div>
+        </td>
+        <td>
+          <span class="status-badge ${statusClass}">
+            <i class="fas ${statusIcon}"></i>
+            ${item.status}
+          </span>
+        </td>
+        <td>
+          <div class="action-buttons">
+            ${item.status === 'completed' ? `
+              <button class="btn-icon" data-action="view" data-id="${item.optimization_id}" title="View Results">
+                <i class="fas fa-eye"></i>
+              </button>
+            ` : ''}
+            <button class="btn-icon" data-action="delete" data-id="${item.optimization_id}" title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+  
+  renderQuickStats() {
+    return `
+      <div class="quick-stat">
+        <span class="quick-stat-label">Today's Optimizations</span>
+        <span class="quick-stat-value" id="today-count">--</span>
+      </div>
+      <div class="quick-stat">
+        <span class="quick-stat-label">This Week</span>
+        <span class="quick-stat-value" id="week-count">--</span>
+      </div>
+      <div class="quick-stat">
+        <span class="quick-stat-label">Best Utilization</span>
+        <span class="quick-stat-value" id="best-util">--</span>
+      </div>
+      <div class="quick-stat">
+        <span class="quick-stat-label">Active Jobs</span>
+        <span class="quick-stat-value" id="active-jobs">--</span>
+      </div>
+    `;
+  }
+  
+  renderPerformanceChart() {
+    return `
+      <canvas id="performance-canvas" width="300" height="200"></canvas>
+    `;
+  }
+  
+  attachEventListeners() {
+    // New optimization button
+    document.getElementById('new-optimization-btn')?.addEventListener('click', 
+      () => this.onNewOptimization());
+    
+    // Refresh button
+    document.getElementById('refresh-btn')?.addEventListener('click', 
+      () => this.refresh());
+    
+    // Filter
+    document.getElementById('filter-status')?.addEventListener('change', 
+      (e) => this.filterHistory(e.target.value));
+    
+    // Action buttons
+    this.container.addEventListener('click', (e) => {
+      const action = e.target.closest('[data-action]');
+      if (!action) return;
+      
+      const actionType = action.dataset.action;
+      const id = action.dataset.id;
+      
+      if (actionType === 'view') {
+        this.onViewResult(id);
+      } else if (actionType === 'delete') {
+        this.onDeleteResult(id);
+      }
+    });
+  }
+  
+  updateHistory(history) {
+    this.history = history || [];
+    this.updateHistoryList();
+    this.updateStats();
+    this.updateChart();
+  }
+  
+  updateHistoryList() {
+    const listElement = document.getElementById('history-list');
+    if (listElement) {
+      listElement.innerHTML = this.renderHistoryList();
     }
-
-    showError(message) {
-        // Show error message in UI
-        console.error('Dashboard Error:', message);
-        // You might use a toast notification system here
-        alert('Error: ' + message);
+  }
+  
+  updateStats() {
+    if (this.history.length === 0) return;
+    
+    // Total optimizations
+    const totalEl = document.getElementById('total-optimizations');
+    if (totalEl) totalEl.textContent = this.history.length;
+    
+    // Average utilization
+    const completed = this.history.filter(h => h.status === 'completed');
+    if (completed.length > 0) {
+      const avgUtil = completed.reduce((sum, h) => sum + (h.utilization || 0), 0) / completed.length;
+      const avgUtilEl = document.getElementById('avg-utilization');
+      if (avgUtilEl) avgUtilEl.textContent = `${avgUtil.toFixed(1)}%`;
     }
-
-    showSuccess(message) {
-        // Show success message in UI
-        console.log('Dashboard Success:', message);
-        // You might use a toast notification system here
-        alert('Success: ' + message);
+    
+    // Average time
+    if (completed.length > 0) {
+      const avgTime = completed.reduce((sum, h) => sum + (h.computation_time || 0), 0) / completed.length;
+      const avgTimeEl = document.getElementById('avg-time');
+      if (avgTimeEl) avgTimeEl.textContent = `${avgTime.toFixed(2)}s`;
     }
-
-    getContainerData() {
-        // Get container data from form inputs or stored state
-        // This would integrate with your container management UI
-        return [];
+    
+    // Success rate
+    const successRate = (completed.length / this.history.length) * 100;
+    const successEl = document.getElementById('success-rate');
+    if (successEl) successEl.textContent = `${successRate.toFixed(1)}%`;
+    
+    // Quick stats
+    this.updateQuickStats();
+  }
+  
+  updateQuickStats() {
+    // Today's count
+    const today = new Date().toDateString();
+    const todayCount = this.history.filter(h => 
+      new Date(h.started_at).toDateString() === today
+    ).length;
+    const todayEl = document.getElementById('today-count');
+    if (todayEl) todayEl.textContent = todayCount;
+    
+    // This week
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const weekCount = this.history.filter(h => 
+      new Date(h.started_at) > weekAgo
+    ).length;
+    const weekEl = document.getElementById('week-count');
+    if (weekEl) weekEl.textContent = weekCount;
+    
+    // Best utilization
+    const completed = this.history.filter(h => h.status === 'completed');
+    if (completed.length > 0) {
+      const bestUtil = Math.max(...completed.map(h => h.utilization || 0));
+      const bestEl = document.getElementById('best-util');
+      if (bestEl) bestEl.textContent = `${bestUtil.toFixed(1)}%`;
     }
-
-    getVehicleData() {
-        // Get vehicle data from form inputs or stored state
-        // This would integrate with your vehicle management UI
-        return [];
+    
+    // Active jobs
+    const active = this.history.filter(h => h.status === 'running' || h.status === 'pending').length;
+    const activeEl = document.getElementById('active-jobs');
+    if (activeEl) activeEl.textContent = active;
+  }
+  
+  updateChart() {
+    const canvas = document.getElementById('performance-canvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Get last 10 completed optimizations
+    const completed = this.history
+      .filter(h => h.status === 'completed')
+      .slice(0, 10)
+      .reverse();
+    
+    if (completed.length === 0) {
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '14px Inter';
+      ctx.textAlign = 'center';
+      ctx.fillText('No data yet', canvas.width / 2, canvas.height / 2);
+      return;
     }
-
-    getConstraintData() {
-        // Get constraint data from UI
-        return {
-            maxDistance: parseFloat(document.getElementById('distance-input')?.value || 100),
-            priority: document.getElementById('optimization-priority')?.value || 'emissions',
-            constraints: {
-                weightLimit: true,
-                volumeLimit: true,
-                hazardSegregation: document.getElementById('hazard-segregation')?.checked || false
-            }
-        };
+    
+    // Draw simple bar chart
+    const barWidth = canvas.width / completed.length;
+    const maxUtil = Math.max(...completed.map(h => h.utilization || 0));
+    
+    completed.forEach((item, i) => {
+      const barHeight = (item.utilization / 100) * (canvas.height - 30);
+      const x = i * barWidth;
+      const y = canvas.height - barHeight - 20;
+      
+      // Bar color based on utilization
+      ctx.fillStyle = item.utilization > 80 ? '#22c55e' : 
+                     item.utilization > 60 ? '#f59e0b' : '#ef4444';
+      ctx.fillRect(x + 5, y, barWidth - 10, barHeight);
+      
+      // Value label
+      ctx.fillStyle = '#4b5563';
+      ctx.font = '10px Inter';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        `${item.utilization.toFixed(0)}%`, 
+        x + barWidth / 2, 
+        canvas.height - 5
+      );
+    });
+  }
+  
+  filterHistory(status) {
+    if (status === 'all') {
+      this.updateHistoryList();
+    } else {
+      const filtered = this.history.filter(h => h.status === status);
+      this.history = filtered;
+      this.updateHistoryList();
     }
-
-    loadSampleData() {
-        // Load sample data for demonstration
-        // This would be replaced with actual data loading
-        console.log('Loading sample data...');
+  }
+  
+  formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    
+    // Less than 1 minute
+    if (diff < 60000) {
+      return 'Just now';
     }
-
-    setupRealTimeUpdates() {
-        // Setup real-time updates for metrics
-        setInterval(() => {
-            if (this.currentOptimizationResult) {
-                this.updateRealTimeMetrics();
-            }
-        }, 5000);
+    
+    // Less than 1 hour
+    if (diff < 3600000) {
+      const mins = Math.floor(diff / 60000);
+      return `${mins} min${mins > 1 ? 's' : ''} ago`;
     }
-
-    updateRealTimeMetrics() {
-        // Update real-time metrics if needed
-        // This could include live data from backend
+    
+    // Less than 24 hours
+    if (diff < 86400000) {
+      const hours = Math.floor(diff / 3600000);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
     }
-
-    destroy() {
-        // Cleanup event listeners and resources
-        console.log('Dashboard destroyed');
+    
+    // Format as date
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  }
+  
+  async refresh() {
+    // This would fetch fresh data from API
+    console.log('Refreshing dashboard...');
+    
+    // Show loading indicator
+    const refreshBtn = document.getElementById('refresh-btn');
+    const icon = refreshBtn?.querySelector('i');
+    if (icon) {
+      icon.classList.add('fa-spin');
+      setTimeout(() => icon.classList.remove('fa-spin'), 1000);
     }
+  }
+  
+  destroy() {
+    this.container.innerHTML = '';
+  }
 }
-
-// Global instance for easy access
-window.dashboard = new Dashboard();

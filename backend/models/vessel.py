@@ -1,210 +1,76 @@
 """
-Vessel Data Models
-Vessel-related data structures and database models.
+Vessel Model
+Represents cargo vessels/ships for container transport.
 """
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, JSON, ForeignKey, Enum
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-import enum
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, field_validator
+from dataclasses import dataclass, field
+from typing import Optional, List, Dict
+from enum import Enum
 from datetime import datetime
 
-Base = declarative_base()
 
-class VesselType(enum.Enum):
-    """Vessel types enumeration"""
-    CONTAINER_SHIP = "container_ship"
-    BULK_CARRIER = "bulk_carrier"
-    TANKER = "tanker"
-    RORO = "roro"
-    GENERAL_CARGO = "general_cargo"
-    LNG_CARRIER = "lng_carrier"
+class VesselType(Enum):
+    """Types of cargo vessels."""
+    FEEDER = "Feeder (< 3000 TEU)"
+    PANAMAX = "Panamax (3000-5000 TEU)"
+    POST_PANAMAX = "Post-Panamax (5000-10000 TEU)"
+    NEW_PANAMAX = "New Panamax (10000-14500 TEU)"
+    ULTRA_LARGE = "Ultra Large (> 14500 TEU)"
 
-class Vessel(Base):
-    """Vessel database model"""
-    __tablename__ = "vessels"
 
-    # Primary key
-    id = Column(Integer, primary_key=True, index=True)
+@dataclass
+class Vessel:
+    """Represents a cargo vessel."""
     
-    # Vessel identification
-    imo_number = Column(String(10), unique=True, index=True, nullable=False)
-    name = Column(String(100), nullable=False)
-    call_sign = Column(String(10))
-    flag = Column(String(50))
-    
-    # Vessel type and category
-    vessel_type = Column(Enum(VesselType), nullable=False)
-    classification_society = Column(String(100))
-    
-    # Physical dimensions
-    length_overall = Column(Float, nullable=False)  # in meters
-    breadth = Column(Float, nullable=False)         # in meters
-    depth = Column(Float, nullable=False)           # in meters
-    draft_design = Column(Float, nullable=False)    # in meters
-    draft_max = Column(Float, nullable=False)       # in meters
-    
-    # Capacity information
-    deadweight_tonnage = Column(Float, nullable=False)  # in tons
-    gross_tonnage = Column(Float, nullable=False)       # in tons
-    net_tonnage = Column(Float, nullable=False)         # in tons
-    teu_capacity = Column(Integer, nullable=False)      # TEU capacity
-    reefer_plugs = Column(Integer)                      # Number of reefer plugs
-    
-    # Compartments and structure
-    number_of_holds = Column(Integer)
-    number_of_hatches = Column(Integer)
-    
-    # Operational data
-    service_speed = Column(Float)  # in knots
-    max_speed = Column(Float)      # in knots
-    fuel_consumption = Column(JSON)  # Fuel consumption at different speeds
-    
-    # Stability and safety
-    gm_min = Column(Float)  # Minimum metacentric height
-    gm_max = Column(Float)  # Maximum metacentric height
-    trim_max = Column(Float)  # Maximum trim in meters
-    
-    # Metadata
-    built_year = Column(Integer)
-    builder = Column(String(100))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    additional_properties = Column(JSON)  # Flexible field for extra data
-    
-    # Relationships
-    compartments = relationship("VesselCompartment", back_populates="vessel")
-
-class VesselCompartment(Base):
-    """Vessel compartment/bay database model"""
-    __tablename__ = "vessel_compartments"
-
-    # Primary key
-    id = Column(Integer, primary_key=True, index=True)
-    
-    # Foreign key
-    vessel_id = Column(Integer, ForeignKey("vessels.id"), nullable=False)
-    
-    # Compartment identification
-    bay_number = Column(Integer, nullable=False)      # Longitudinal position
-    row_number = Column(Integer, nullable=False)      # Transverse position
-    tier_number = Column(Integer, nullable=False)     # Vertical position
-    
-    # Physical properties
-    length = Column(Float, nullable=False)  # in meters
-    width = Column(Float, nullable=False)   # in meters
-    height = Column(Float, nullable=False)  # in meters
-    max_weight = Column(Float, nullable=False)  # in kg
-    
-    # Special capabilities
-    can_accommodate_reefer = Column(Boolean, default=False)
-    can_accommodate_hazardous = Column(Boolean, default=False)
-    can_accommodate_oversized = Column(Boolean, default=False)
-    has_power_supply = Column(Boolean, default=False)
-    
-    # Operational constraints
-    is_occupied = Column(Boolean, default=False)
-    is_blocked = Column(Boolean, default=False)  # For maintenance, etc.
-    
-    # Metadata
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    # Relationships
-    vessel = relationship("Vessel", back_populates="compartments")
-
-    def get_position_code(self) -> str:
-        """Generate position code (e.g., '010203' for bay1, row2, tier3)"""
-        return f"{self.bay_number:02d}{self.row_number:02d}{self.tier_number:02d}"
-
-# Pydantic models for API
-class VesselCompartmentBase(BaseModel):
-    """Base Pydantic model for vessel compartment"""
-    bay_number: int
-    row_number: int
-    tier_number: int
-    length: float
-    width: float
-    height: float
-    max_weight: float
-    can_accommodate_reefer: bool = False
-    can_accommodate_hazardous: bool = False
-    can_accommodate_oversized: bool = False
-    has_power_supply: bool = False
-    is_occupied: bool = False
-    is_blocked: bool = False
-
-class VesselCompartmentCreate(VesselCompartmentBase):
-    """Pydantic model for creating a vessel compartment"""
-    pass
-
-class VesselCompartmentResponse(VesselCompartmentBase):
-    """Pydantic model for vessel compartment API response"""
-    id: int
-    vessel_id: int
-    position_code: str
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-    @field_validator('position_code', mode='before')
-    @classmethod
-    def generate_position_code(cls, v, info):
-        """Generate position code from bay, row, tier numbers"""
-        if v is not None:
-            return v
-        data = info.data
-        bay = data.get('bay_number', 0)
-        row = data.get('row_number', 0)
-        tier = data.get('tier_number', 0)
-        return f"{bay:02d}{row:02d}{tier:02d}"
-
-class VesselBase(BaseModel):
-    """Base Pydantic model for Vessel"""
-    imo_number: str
+    vessel_id: str
     name: str
     vessel_type: VesselType
-    length_overall: float
-    breadth: float
-    depth: float
-    draft_design: float
-    draft_max: float
-    deadweight_tonnage: float
-    gross_tonnage: float
-    net_tonnage: float
-    teu_capacity: int
-    call_sign: Optional[str] = None
-    flag: Optional[str] = None
-    classification_society: Optional[str] = None
-    reefer_plugs: Optional[int] = None
-    number_of_holds: Optional[int] = None
-    number_of_hatches: Optional[int] = None
-    service_speed: Optional[float] = None
-    max_speed: Optional[float] = None
-    gm_min: Optional[float] = None
-    gm_max: Optional[float] = None
-    trim_max: Optional[float] = None
-    built_year: Optional[int] = None
-    builder: Optional[str] = None
-
-class VesselCreate(VesselBase):
-    """Pydantic model for creating a vessel"""
-    pass
-
-class VesselUpdate(BaseModel):
-    """Pydantic model for updating a vessel"""
-    name: Optional[str] = None
-    service_speed: Optional[float] = None
-    max_speed: Optional[float] = None
-    fuel_consumption: Optional[Dict[str, Any]] = None
-
-class VesselResponse(VesselBase):
-    """Pydantic model for vessel API response"""
-    id: int
-    compartments: List[VesselCompartmentResponse] = []
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    model_config = {"from_attributes": True, "use_enum_values": True}
+    
+    # Capacity
+    teu_capacity: int  # Twenty-foot Equivalent Unit capacity
+    max_weight_tons: float
+    
+    # Dimensions
+    length_m: float
+    width_m: float
+    draft_m: float
+    
+    # Stowage
+    bays: int
+    rows: int
+    tiers_above_deck: int
+    tiers_below_deck: int
+    
+    # Properties
+    reefer_plugs: int = 0
+    max_speed_knots: float = 20.0
+    
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    
+    @property
+    def total_slots(self) -> int:
+        """Calculate total container slots."""
+        return self.bays * self.rows * (self.tiers_above_deck + self.tiers_below_deck)
+    
+    def to_dict(self) -> Dict:
+        return {
+            'vessel_id': self.vessel_id,
+            'name': self.name,
+            'vessel_type': self.vessel_type.value,
+            'teu_capacity': self.teu_capacity,
+            'max_weight_tons': self.max_weight_tons,
+            'dimensions': {
+                'length_m': self.length_m,
+                'width_m': self.width_m,
+                'draft_m': self.draft_m
+            },
+            'stowage': {
+                'bays': self.bays,
+                'rows': self.rows,
+                'tiers_above': self.tiers_above_deck,
+                'tiers_below': self.tiers_below_deck,
+                'total_slots': self.total_slots
+            },
+            'reefer_plugs': self.reefer_plugs,
+            'max_speed_knots': self.max_speed_knots
+        }

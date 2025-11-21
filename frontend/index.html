@@ -3,540 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cargo Space Optimization</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <meta name="description" content="CargoOpt - AI-Powered Container Optimization System for efficient 3D bin packing and logistics optimization">
+    <meta name="keywords" content="container optimization, bin packing, logistics, AI, cargo management">
+    <meta name="author" content="CargoOpt Development Team">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="alternate icon" href="/favicon.ico">
+    
+    <!-- Preconnect to external resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    
+    <!-- Title -->
+    <title>CargoOpt - AI-Powered Container Optimization</title>
+    
+    <!-- Progressive Web App Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e40af">
+    
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CargoOpt">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="CargoOpt - AI-Powered Container Optimization">
+    <meta property="og:description" content="Optimize your container packing with advanced AI algorithms for maximum efficiency and cost savings">
+    <meta property="og:image" content="/og-image.png">
+    <meta property="og:url" content="https://cargoopt.com">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="CargoOpt - AI-Powered Container Optimization">
+    <meta name="twitter:description" content="Optimize your container packing with advanced AI algorithms">
+    <meta name="twitter:image" content="/twitter-card.png">
+    
+    <!-- Inline Critical CSS for faster initial render -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+        
+        #loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: white;
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        #root {
+            width: 100%;
+            min-height: 100vh;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <h1 class="logo">
-                    <i class="fas fa-boxes"></i>
-                    CargoOpt
-                </h1>
-                <p class="tagline">Advanced Container Packing Optimization</p>
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Sidebar -->
-            <aside class="sidebar">
-                <nav class="nav-tabs">
-                    <button class="tab-btn active" data-tab="optimization">
-                        <i class="fas fa-cube"></i>
-                        Optimization
-                    </button>
-                    <button class="tab-btn" data-tab="containers">
-                        <i class="fas fa-shipping-fast"></i>
-                        Containers
-                    </button>
-                    <button class="tab-btn" data-tab="items">
-                        <i class="fas fa-box"></i>
-                        Items
-                    </button>
-                    <button class="tab-btn" data-tab="results">
-                        <i class="fas fa-chart-bar"></i>
-                        Results
-                    </button>
-                    <button class="tab-btn" data-tab="history">
-                        <i class="fas fa-history"></i>
-                        History
-                    </button>
-                </nav>
-
-                <div class="status-panel">
-                    <h3>System Status</h3>
-                    <div class="status-item">
-                        <span class="status-label">API:</span>
-                        <span class="status-value" id="api-status">Checking...</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">Database:</span>
-                        <span class="status-value" id="db-status">Checking...</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">Last Update:</span>
-                        <span class="status-value" id="last-update">-</span>
-                    </div>
-                </div>
-
-                <div class="quick-actions">
-                    <h3>Quick Actions</h3>
-                    <button class="btn btn-outline btn-sm btn-block" id="load-sample-data">
-                        <i class="fas fa-magic"></i>
-                        Load Sample Data
-                    </button>
-                    <button class="btn btn-outline btn-sm btn-block" id="export-results">
-                        <i class="fas fa-download"></i>
-                        Export Results
-                    </button>
-                    <button class="btn btn-outline btn-sm btn-block" id="clear-data">
-                        <i class="fas fa-trash"></i>
-                        Clear All Data
-                    </button>
-                </div>
-            </aside>
-
-            <!-- Content Area -->
-            <div class="content-area">
-                <!-- Optimization Tab -->
-                <div id="optimization" class="tab-content active">
-                    <div class="tab-header">
-                        <h2><i class="fas fa-cube"></i> Container Optimization</h2>
-                        <p>Optimize cargo placement using advanced algorithms</p>
-                    </div>
-
-                    <div class="optimization-controls">
-                        <div class="control-group">
-                            <label for="algorithm-select">Algorithm:</label>
-                            <select id="algorithm-select" class="form-select">
-                                <option value="auto">Auto Select (Recommended)</option>
-                                <option value="packing">Basic Packing</option>
-                                <option value="genetic">Genetic Algorithm</option>
-                                <option value="stowage">Multi-Container Stowage</option>
-                            </select>
-                        </div>
-
-                        <div class="control-group">
-                            <label for="strategy-select">Strategy:</label>
-                            <select id="strategy-select" class="form-select">
-                                <option value="balanced">Balanced</option>
-                                <option value="space_first">Space First</option>
-                                <option value="weight_first">Weight First</option>
-                                <option value="stability_first">Stability First</option>
-                            </select>
-                        </div>
-
-                        <div class="genetic-params" id="genetic-params" style="display: none;">
-                            <h4>Genetic Algorithm Parameters</h4>
-                            <div class="param-row">
-                                <div class="param-group">
-                                    <label for="generations">Generations:</label>
-                                    <input type="number" id="generations" value="100" min="10" max="1000" class="form-input">
-                                </div>
-                                <div class="param-group">
-                                    <label for="population-size">Population:</label>
-                                    <input type="number" id="population-size" value="50" min="10" max="200" class="form-input">
-                                </div>
-                                <div class="param-group">
-                                    <label for="mutation-rate">Mutation Rate:</label>
-                                    <input type="number" id="mutation-rate" value="0.1" step="0.01" min="0.01" max="0.5" class="form-input">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="action-buttons">
-                            <button id="validate-btn" class="btn btn-secondary">
-                                <i class="fas fa-check-circle"></i>
-                                Validate Data
-                            </button>
-                            <button id="optimize-btn" class="btn btn-primary">
-                                <i class="fas fa-play"></i>
-                                Run Optimization
-                            </button>
-                            <button id="compare-btn" class="btn btn-outline">
-                                <i class="fas fa-balance-scale"></i>
-                                Compare Algorithms
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="results-preview">
-                        <div class="preview-header">
-                            <h3>Optimization Preview</h3>
-                            <div class="preview-stats">
-                                <div class="stat">
-                                    <span class="stat-label">Containers:</span>
-                                    <span class="stat-value" id="preview-containers">0</span>
-                                </div>
-                                <div class="stat">
-                                    <span class="stat-label">Items:</span>
-                                    <span class="stat-value" id="preview-items">0</span>
-                                </div>
-                                <div class="stat">
-                                    <span class="stat-label">Total Volume:</span>
-                                    <span class="stat-value" id="preview-volume">0 m³</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div id="optimization-results" class="results-container">
-                            <div class="empty-state">
-                                <i class="fas fa-cube"></i>
-                                <p>Run optimization to see results</p>
-                                <small>Add containers and items, then run optimization to see placement results</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Containers Tab -->
-                <div id="containers" class="tab-content">
-                    <div class="tab-header">
-                        <h2><i class="fas fa-shipping-fast"></i> Container Management</h2>
-                        <p>Manage container types and specifications</p>
-                    </div>
-
-                    <div class="container-management">
-                        <div class="management-header">
-                            <h3>Available Containers</h3>
-                            <button id="add-container-btn" class="btn btn-primary">
-                                <i class="fas fa-plus"></i>
-                                Add Container
-                            </button>
-                        </div>
-
-                        <div class="containers-grid" id="containers-grid">
-                            <!-- Containers will be dynamically added here -->
-                        </div>
-
-                        <div class="standard-containers">
-                            <h4>Standard Container Types</h4>
-                            <p class="section-description">Click on a standard container to use its specifications</p>
-                            <div class="standard-grid" id="standard-containers">
-                                <!-- Standard containers will be loaded here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Items Tab -->
-                <div id="items" class="tab-content">
-                    <div class="tab-header">
-                        <h2><i class="fas fa-box"></i> Cargo Items</h2>
-                        <p>Manage items to be packed</p>
-                    </div>
-
-                    <div class="items-management">
-                        <div class="management-header">
-                            <h3>Cargo Items</h3>
-                            <div class="header-actions">
-                                <button id="add-item-btn" class="btn btn-primary">
-                                    <i class="fas fa-plus"></i>
-                                    Add Item
-                                </button>
-                                <button class="btn btn-outline" id="load-sample-items">
-                                    <i class="fas fa-magic"></i>
-                                    Load Sample
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="items-table-container">
-                            <table class="items-table" id="items-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Name</th>
-                                        <th>Dimensions (cm)</th>
-                                        <th>Weight (kg)</th>
-                                        <th>Quantity</th>
-                                        <th>Properties</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="items-table-body">
-                                    <!-- Items will be dynamically added here -->
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="items-summary">
-                            <div class="summary-card">
-                                <h4>Total Items</h4>
-                                <div class="summary-value" id="total-items">0</div>
-                            </div>
-                            <div class="summary-card">
-                                <h4>Total Volume</h4>
-                                <div class="summary-value" id="total-volume">0 m³</div>
-                            </div>
-                            <div class="summary-card">
-                                <h4>Total Weight</h4>
-                                <div class="summary-value" id="total-weight">0 kg</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Results Tab -->
-                <div id="results" class="tab-content">
-                    <div class="tab-header">
-                        <h2><i class="fas fa-chart-bar"></i> Optimization Results</h2>
-                        <p>View detailed optimization results and analytics</p>
-                    </div>
-
-                    <div class="results-dashboard">
-                        <div class="metrics-grid">
-                            <div class="metric-card">
-                                <div class="metric-icon">
-                                    <i class="fas fa-chart-pie"></i>
-                                </div>
-                                <div class="metric-info">
-                                    <div class="metric-value" id="metric-utilization">0%</div>
-                                    <div class="metric-label">Space Utilization</div>
-                                </div>
-                            </div>
-                            <div class="metric-card">
-                                <div class="metric-icon">
-                                    <i class="fas fa-boxes"></i>
-                                </div>
-                                <div class="metric-info">
-                                    <div class="metric-value" id="metric-items">0</div>
-                                    <div class="metric-label">Items Packed</div>
-                                </div>
-                            </div>
-                            <div class="metric-card">
-                                <div class="metric-icon">
-                                    <i class="fas fa-weight-hanging"></i>
-                                </div>
-                                <div class="metric-info">
-                                    <div class="metric-value" id="metric-weight">0%</div>
-                                    <div class="metric-label">Weight Utilization</div>
-                                </div>
-                            </div>
-                            <div class="metric-card">
-                                <div class="metric-icon">
-                                    <i class="fas fa-tachometer-alt"></i>
-                                </div>
-                                <div class="metric-info">
-                                    <div class="metric-value" id="metric-efficiency">0%</div>
-                                    <div class="metric-label">Efficiency Score</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="results-details">
-                            <div class="detail-section">
-                                <div class="section-header">
-                                    <h3>Placement Visualization</h3>
-                                    <div class="section-actions">
-                                        <button class="btn btn-outline btn-sm" id="export-visualization">
-                                            <i class="fas fa-download"></i>
-                                            Export
-                                        </button>
-                                        <button class="btn btn-outline btn-sm" id="toggle-3d-view">
-                                            <i class="fas fa-cube"></i>
-                                            3D View
-                                        </button>
-                                    </div>
-                                </div>
-                                <div id="visualization-container" class="visualization-container">
-                                    <div class="visualization-placeholder">
-                                        <i class="fas fa-cube"></i>
-                                        <p>3D visualization will appear here after optimization</p>
-                                        <small>Run an optimization to see the placement visualization</small>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="detail-section">
-                                <h3>Placement Details</h3>
-                                <div class="placements-table-container">
-                                    <table class="placements-table" id="placements-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Item ID</th>
-                                                <th>Position (x,y,z)</th>
-                                                <th>Dimensions</th>
-                                                <th>Rotated</th>
-                                                <th>Volume</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="placements-table-body">
-                                            <!-- Placements will be dynamically added here -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- History Tab -->
-                <div id="history" class="tab-content">
-                    <div class="tab-header">
-                        <h2><i class="fas fa-history"></i> Optimization History</h2>
-                        <p>View previous optimization runs</p>
-                    </div>
-
-                    <div class="history-content">
-                        <div class="history-filters">
-                            <div class="filter-group">
-                                <label for="history-algorithm">Algorithm:</label>
-                                <select id="history-algorithm" class="form-select">
-                                    <option value="">All Algorithms</option>
-                                    <option value="packing">Basic Packing</option>
-                                    <option value="genetic">Genetic Algorithm</option>
-                                    <option value="stowage">Stowage</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label for="history-limit">Show:</label>
-                                <select id="history-limit" class="form-select">
-                                    <option value="10">Last 10</option>
-                                    <option value="25">Last 25</option>
-                                    <option value="50">Last 50</option>
-                                </select>
-                            </div>
-                            <button id="refresh-history" class="btn btn-secondary">
-                                <i class="fas fa-sync"></i>
-                                Refresh
-                            </button>
-                        </div>
-
-                        <div class="history-table-container">
-                            <table class="history-table" id="history-table">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Algorithm</th>
-                                        <th>Utilization</th>
-                                        <th>Items Packed</th>
-                                        <th>Execution Time</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="history-table-body">
-                                    <!-- History items will be dynamically added here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Loading CargoOpt...</p>
     </div>
-
-    <!-- Modals -->
-    <div id="container-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="container-modal-title">Add Container</h3>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="container-form" class="form">
-                    <div class="form-group">
-                        <label for="container-name">Name:</label>
-                        <input type="text" id="container-name" class="form-input" required>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="container-length">Length (cm):</label>
-                            <input type="number" id="container-length" class="form-input" required min="1">
-                        </div>
-                        <div class="form-group">
-                            <label for="container-width">Width (cm):</label>
-                            <input type="number" id="container-width" class="form-input" required min="1">
-                        </div>
-                        <div class="form-group">
-                            <label for="container-height">Height (cm):</label>
-                            <input type="number" id="container-height" class="form-input" required min="1">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="container-weight">Max Weight (kg):</label>
-                        <input type="number" id="container-weight" class="form-input" required min="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="container-type">Type:</label>
-                        <select id="container-type" class="form-input">
-                            <option value="custom">Custom</option>
-                            <option value="standard_20ft">Standard 20ft</option>
-                            <option value="standard_40ft">Standard 40ft</option>
-                            <option value="high_cube_40ft">High Cube 40ft</option>
-                            <option value="reefer_20ft">Refrigerated 20ft</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary modal-cancel">Cancel</button>
-                <button class="btn btn-primary" id="save-container">Save Container</button>
-            </div>
+    
+    <!-- React Root -->
+    <div id="root"></div>
+    
+    <!-- No Script Fallback -->
+    <noscript>
+        <div style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 500px;
+        ">
+            <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #f59e0b; margin-bottom: 20px;"></i>
+            <h1 style="margin-bottom: 10px; color: #1f2937;">JavaScript Required</h1>
+            <p style="color: #6b7280; line-height: 1.6;">
+                CargoOpt requires JavaScript to function properly. 
+                Please enable JavaScript in your browser settings and reload the page.
+            </p>
         </div>
-    </div>
-
-    <div id="item-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="item-modal-title">Add Item</h3>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="item-form" class="form">
-                    <div class="form-group">
-                        <label for="item-id">ID:</label>
-                        <input type="number" id="item-id" class="form-input" required min="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="item-name">Name:</label>
-                        <input type="text" id="item-name" class="form-input" required>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="item-length">Length (cm):</label>
-                            <input type="number" id="item-length" class="form-input" required min="0.1">
-                        </div>
-                        <div class="form-group">
-                            <label for="item-width">Width (cm):</label>
-                            <input type="number" id="item-width" class="form-input" required min="0.1">
-                        </div>
-                        <div class="form-group">
-                            <label for="item-height">Height (cm):</label>
-                            <input type="number" id="item-height" class="form-input" required min="0.1">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="item-weight">Weight (kg):</label>
-                        <input type="number" id="item-weight" class="form-input" required min="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label for="item-quantity">Quantity:</label>
-                        <input type="number" id="item-quantity" class="form-input" value="1" min="1">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group checkbox-group">
-                            <input type="checkbox" id="item-fragile" class="form-checkbox">
-                            <label for="item-fragile">Fragile</label>
-                        </div>
-                        <div class="form-group checkbox-group">
-                            <input type="checkbox" id="item-stackable" class="form-checkbox" checked>
-                            <label for="item-stackable">Stackable</label>
-                        </div>
-                        <div class="form-group checkbox-group">
-                            <input type="checkbox" id="item-rotation" class="form-checkbox" checked>
-                            <label for="item-rotation">Rotation Allowed</label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary modal-cancel">Cancel</button>
-                <button class="btn btn-primary" id="save-item">Save Item</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="loading-overlay">
-        <div class="loading-spinner">
-            <i class="fas fa-cog fa-spin"></i>
-            <p>Processing...</p>
-        </div>
-    </div>
-
-    <!-- Notification System -->
-    <div id="notifications" class="notifications"></div>
-
-    <!-- JavaScript Files -->
-    <script src="js/utils/constants.js"></script>
-    <script src="js/utils/helpers.js"></script>
-    <script src="js/services/api.js"></script>
-    <script src="js/components/forms.js"></script>
-    <script src="js/components/results.js"></script>
-    <script src="js/app.js"></script>
+    </noscript>
+    
+    <!-- React Application Entry Point -->
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        // Register service worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered:', registration);
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+        
+        // Hide loading screen once app loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.classList.add('hidden');
+                    setTimeout(() => loadingScreen.remove(), 500);
+                }
+            }, 500);
+        });
+    </script>
+    
+    <!-- Google Analytics (Optional - replace with your tracking ID) -->
+    <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=GA_TRACKING_ID"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'GA_TRACKING_ID');
+    </script> -->
 </body>
 </html>

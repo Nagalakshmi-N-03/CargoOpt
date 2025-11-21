@@ -1,147 +1,518 @@
-import math
-from typing import Dict, List, Optional
+"""
+Emission Calculator Service
+Calculates carbon footprint and environmental impact metrics.
+"""
+
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-import logging
+import math
+
+from backend.config.settings import Config
+from backend.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class EmissionFactors:
-    TRUCK_SMALL: float = 0.00012  # kg CO2 per kg-km
-    TRUCK_MEDIUM: float = 0.00010
-    TRUCK_LARGE: float = 0.00008
-    VAN: float = 0.00015
-    DEFAULT: float = 0.00010
+    """Standard emission factors for transportation."""
+    
+    # CO2 emissions in kg per ton-km
+    TRUCK_EMISSION_FACTOR = 0.062  # kg CO2 per ton-km
+    SHIP_EMISSION_FACTOR = 0.008   # kg CO2 per ton-km
+    RAIL_EMISSION_FACTOR = 0.022   # kg CO2 per ton-km
+    AIR_EMISSION_FACTOR = 0.602    # kg CO2 per ton-km
+    
+    # Fuel consumption factors (liters per 100 km)
+    TRUCK_FUEL_CONSUMPTION = 30    # L/100km for loaded truck
+    SHIP_FUEL_CONSUMPTION = 150    # kg/nautical mile for container ship
+    
+    # CO2 per liter of fuel
+    DIESEL_CO2_PER_LITER = 2.68    # kg CO2 per liter
 
-@dataclass
-class EmissionResult:
-    total_emissions_kg: float
-    emissions_per_vehicle: Dict[str, float]
-    emissions_per_container: Dict[str, float]
-    distance_km: float
-    equivalent_metrics: Dict[str, float]
+
+class FuelEfficiencyCalculator:
+    """Calculates fuel efficiency metrics."""
+    
+    @staticmethod
+    def calculate_truck_fuel_consumption(
+        distance_km: float,
+        cargo_weight_kg: float,
+        utilization: float
+    ) -> Dict[str, float]:
+        """
+        Calculate truck fuel consumption.
+        
+        Args:
+            distance_km: Distance in kilometers
+            cargo_weight_kg: Cargo weight in kg
+            utilization: Container utilization (0-1)
+            
+        Returns:
+            Dictionary with fuel metrics
+        """
+        # Base consumption
+        base_consumption = EmissionFactors.TRUCK_FUEL_CONSUMPTION
+        
+        # Adjust for load (empty truck uses ~70% fuel of full truck)
+        load_factor = 0.7 + (0.3 * utilization)
+        fuel_per_100km = base_consumption * load_factor
+        
+        # Total fuel
+        total_fuel = (distance_km / 100) * fuel_per_100km
+        
+        # Fuel efficiency (ton-km per liter)
+        cargo_tons = cargo_weight_kg / 1000
+        efficiency = (cargo_tons * distance_km) / total_fuel if total_fuel > 0 else 0
+        
+        return {
+            'fuel_consumption_liters': round(total_fuel, 2),
+            'fuel_per_100km': round(fuel_per_100km, 2),
+            'efficiency_ton_km_per_liter': round(efficiency, 2),
+            'distance_km': distance_km,
+            'cargo_tons': round(cargo_tons, 2)
+        }
+    
+    @staticmethod
+    def calculate_ship_fuel_consumption(
+        distance_nm: float,
+        cargo_weight_kg: float,
+        ship_capacity_teu: int = 5000
+    ) -> Dict[str, float]:
+        """
+        Calculate ship fuel consumption.
+        
+        Args:
+            distance_nm: Distance in nautical miles
+            cargo_weight_kg: Cargo weight in kg
+            ship_capacity_teu: Ship capacity in TEU
+            
+        Returns:
+            Dictionary with fuel metrics
+        """
+        # Base consumption (kg fuel per nautical mile)
+        base_consumption = EmissionFactors.SHIP_FUEL_CONSUMPTION
+        
+        # Scale by ship size
+        size_factor = math.sqrt(ship_capacity_teu / 5000)
+        fuel_per_nm = base_consumption * size_factor
+        
+        # Total fuel in kg
+        total_fuel_kg = distance_nm * fuel_per_nm
+        
+        # Convert to liters (HFO density ~0.98 kg/L)
+        total_fuel_liters = total_fuel_kg / 0.98
+        
+        cargo_tons = cargo_weight_kg / 1000
+        efficiency = (cargo_tons * distance_nm) / total_fuel_liters if total_fuel_liters > 0 else 0
+        
+        return {
+            'fuel_consumption_liters': round(total_fuel_liters, 2),
+            'fuel_consumption_kg': round(total_fuel_kg, 2),
+            'fuel_per_nm': round(fuel_per_nm, 2),
+            'efficiency_ton_nm_per_liter': round(efficiency, 2),
+            'distance_nm': distance_nm,
+            'cargo_tons': round(cargo_tons, 2)
+        }
+
+
+class CarbonFootprintAnalyzer:
+    """Analyzes carbon footprint of transportation."""
+    
+    @staticmethod
+    def calculate_emissions(
+        transport_mode: str,
+        distance: float,
+        cargo_weight_kg: float,
+        utilization: float = 1.0
+    ) -> Dict[str, float]:
+        """
+        Calculate CO2 emissions for transportation.
+        
+        Args:
+            transport_mode: 'truck', 'ship', 'rail', or 'air'
+            distance: Distance in km (or nm for ship)
+            cargo_weight_kg: Cargo weight in kg
+            utilization: Container utilization factor (0-1)
+            
+        Returns:
+            Dictionary with emission metrics
+        """
+        cargo_tons = cargo_weight_kg / 1000
+        
+        # Select emission factor
+        emission_factors = {
+            'truck': EmissionFactors.TRUCK_EMISSION_FACTOR,
+            'ship': EmissionFactors.SHIP_EMISSION_FACTOR,
+            'rail': EmissionFactors.RAIL_EMISSION_FACTOR,
+            'air': EmissionFactors.AIR_EMISSION_FACTOR
+        }
+        
+        factor = emission_factors.get(transport_mode, EmissionFactors.TRUCK_EMISSION_FACTOR)
+        
+        # Calculate base emissions (ton-km)
+        ton_km = cargo_tons * distance
+        base_emissions = ton_km * factor
+        
+        # Adjust for utilization (better utilization = lower emissions per ton)
+        utilization_factor = 1.0 / utilization if utilization > 0 else 1.0
+        adjusted_emissions = base_emissions * utilization_factor
+        
+        # Calculate equivalent metrics
+        trees_to_offset = adjusted_emissions / 21  # One tree absorbs ~21 kg CO2/year
+        
+        return {
+            'co2_emissions_kg': round(adjusted_emissions, 2),
+            'co2_emissions_tons': round(adjusted_emissions / 1000, 4),
+            'ton_km': round(ton_km, 2),
+            'emission_factor': factor,
+            'transport_mode': transport_mode,
+            'distance': distance,
+            'utilization_factor': round(utilization, 2),
+            'trees_to_offset': round(trees_to_offset, 1)
+        }
+    
+    @staticmethod
+    def calculate_utilization_impact(
+        cargo_weight_kg: float,
+        container_capacity_kg: float,
+        current_utilization: float,
+        improved_utilization: float,
+        distance_km: float,
+        transport_mode: str = 'truck'
+    ) -> Dict[str, float]:
+        """
+        Calculate emission savings from improved utilization.
+        
+        Args:
+            cargo_weight_kg: Cargo weight
+            container_capacity_kg: Container capacity
+            current_utilization: Current space utilization (0-1)
+            improved_utilization: Improved space utilization (0-1)
+            distance_km: Distance
+            transport_mode: Transportation mode
+            
+        Returns:
+            Dictionary with savings metrics
+        """
+        # Current emissions
+        current = CarbonFootprintAnalyzer.calculate_emissions(
+            transport_mode, distance_km, cargo_weight_kg, current_utilization
+        )
+        
+        # Improved emissions
+        improved = CarbonFootprintAnalyzer.calculate_emissions(
+            transport_mode, distance_km, cargo_weight_kg, improved_utilization
+        )
+        
+        # Savings
+        emissions_saved = current['co2_emissions_kg'] - improved['co2_emissions_kg']
+        percentage_saved = (emissions_saved / current['co2_emissions_kg']) * 100 if current['co2_emissions_kg'] > 0 else 0
+        
+        return {
+            'current_emissions_kg': current['co2_emissions_kg'],
+            'improved_emissions_kg': improved['co2_emissions_kg'],
+            'emissions_saved_kg': round(emissions_saved, 2),
+            'percentage_saved': round(percentage_saved, 2),
+            'current_utilization': round(current_utilization * 100, 2),
+            'improved_utilization': round(improved_utilization * 100, 2),
+            'utilization_improvement': round((improved_utilization - current_utilization) * 100, 2)
+        }
+
 
 class EmissionCalculator:
-    def __init__(self):
-        self.factors = EmissionFactors()
-        self.logger = logging.getLogger(__name__)
+    """
+    Main emission calculator service.
+    """
     
-    def calculate_emissions(self, assignments: Dict[str, List[str]], 
-                          containers: List[Dict], 
-                          vehicles: List[Dict],
-                          distance_km: float = 100.0) -> EmissionResult:
+    def __init__(self, config: Config = None):
         """
-        Calculate emissions for the given assignments
-        Matches the frontend emission calculation logic
+        Initialize emission calculator.
+        
+        Args:
+            config: Configuration object
         """
-        try:
-            # Create lookup dictionaries
-            container_lookup = {c['id']: c for c in containers}
-            vehicle_lookup = {v['id']: v for v in vehicles}
+        self.config = config or Config()
+        self.fuel_calculator = FuelEfficiencyCalculator()
+        self.carbon_analyzer = CarbonFootprintAnalyzer()
+        
+        logger.info("EmissionCalculator initialized")
+    
+    def calculate_optimization_impact(
+        self,
+        container: Dict,
+        placements: List,
+        distance_km: float = 1000,
+        transport_mode: str = 'truck'
+    ) -> Dict[str, any]:
+        """
+        Calculate environmental impact of an optimization result.
+        
+        Args:
+            container: Container specifications
+            placements: List of placements
+            distance_km: Transportation distance
+            transport_mode: Mode of transport
             
-            emissions_per_vehicle = {}
-            emissions_per_container = {}
-            total_emissions = 0.0
-            
-            # Calculate emissions for each vehicle
-            for vehicle_id, container_ids in assignments.items():
-                vehicle = vehicle_lookup.get(vehicle_id)
-                if not vehicle:
-                    continue
-                
-                emission_factor = self._get_emission_factor(vehicle)
-                vehicle_emissions = 0.0
-                
-                for container_id in container_ids:
-                    container = container_lookup.get(container_id)
-                    if container:
-                        container_emissions = (container['weight'] * 
-                                             emission_factor * distance_km)
-                        emissions_per_container[container_id] = container_emissions
-                        vehicle_emissions += container_emissions
-                
-                emissions_per_vehicle[vehicle_id] = vehicle_emissions
-                total_emissions += vehicle_emissions
-            
-            # Calculate equivalent metrics (matching frontend)
-            equivalent_metrics = self._calculate_equivalent_metrics(total_emissions)
-            
-            return EmissionResult(
-                total_emissions_kg=round(total_emissions, 2),
-                emissions_per_vehicle={k: round(v, 2) for k, v in emissions_per_vehicle.items()},
-                emissions_per_container={k: round(v, 2) for k, v in emissions_per_container.items()},
-                distance_km=distance_km,
-                equivalent_metrics=equivalent_metrics
+        Returns:
+            Dictionary with environmental metrics
+        """
+        # Calculate utilization
+        container_volume = container['length'] * container['width'] * container['height']
+        used_volume = sum(
+            p.length * p.width * p.height if hasattr(p, 'length') else 0
+            for p in placements
+        )
+        utilization = used_volume / container_volume if container_volume > 0 else 0
+        
+        # Calculate total weight
+        total_weight = sum(
+            p.weight if hasattr(p, 'weight') else 0
+            for p in placements
+        )
+        
+        # Calculate emissions
+        emissions = self.carbon_analyzer.calculate_emissions(
+            transport_mode, distance_km, total_weight, utilization
+        )
+        
+        # Calculate fuel consumption
+        if transport_mode == 'truck':
+            fuel_metrics = self.fuel_calculator.calculate_truck_fuel_consumption(
+                distance_km, total_weight, utilization
             )
-            
-        except Exception as e:
-            self.logger.error(f"Error calculating emissions: {e}")
-            raise
-    
-    def _get_emission_factor(self, vehicle: Dict) -> float:
-        """Get emission factor based on vehicle type matching frontend logic"""
-        vehicle_type = vehicle.get('type', '').lower()
-        
-        if 'small' in vehicle_type:
-            return self.factors.TRUCK_SMALL
-        elif 'medium' in vehicle_type:
-            return self.factors.TRUCK_MEDIUM
-        elif 'large' in vehicle_type:
-            return self.factors.TRUCK_LARGE
-        elif 'van' in vehicle_type:
-            return self.factors.VAN
+        elif transport_mode == 'ship':
+            distance_nm = distance_km * 0.539957  # km to nautical miles
+            fuel_metrics = self.fuel_calculator.calculate_ship_fuel_consumption(
+                distance_nm, total_weight
+            )
         else:
-            return self.factors.DEFAULT
-    
-    def _calculate_equivalent_metrics(self, emissions_kg: float) -> Dict[str, float]:
-        """Calculate equivalent environmental metrics matching frontend"""
-        # Conversion factors (same as frontend)
-        KM_DRIVEN_PER_KG_CO2 = 10.0  # Average car emits ~0.2 kg CO2 per km
-        TREES_PER_KG_CO2_YEAR = 0.02  # One tree absorbs ~50 kg CO2 per year
-        LITERS_GASOLINE_PER_KG_CO2 = 0.43  # 1L gasoline ≈ 2.3 kg CO2
-        SMARTPHONE_CHARGES_PER_KG_CO2 = 121.0  # Based on average smartphone energy use
+            fuel_metrics = {}
+        
+        # Calculate cost (approximate)
+        fuel_cost_per_liter = 1.5  # USD per liter (approximate)
+        fuel_cost = fuel_metrics.get('fuel_consumption_liters', 0) * fuel_cost_per_liter
         
         return {
-            "equivalent_km_driven": round(emissions_kg * KM_DRIVEN_PER_KG_CO2, 2),
-            "equivalent_trees_year": round(emissions_kg * TREES_PER_KG_CO2_YEAR, 2),
-            "equivalent_gasoline_liters": round(emissions_kg * LITERS_GASOLINE_PER_KG_CO2, 2),
-            "equivalent_smartphone_charges": round(emissions_kg * SMARTPHONE_CHARGES_PER_KG_CO2, 2)
+            'emissions': emissions,
+            'fuel': fuel_metrics,
+            'cost_estimate_usd': round(fuel_cost, 2),
+            'utilization_percentage': round(utilization * 100, 2),
+            'environmental_rating': self._calculate_rating(utilization, emissions['co2_emissions_kg'])
         }
     
-    def calculate_savings(self, baseline_emissions: float, optimized_emissions: float) -> Dict[str, float]:
-        """Calculate emission savings matching frontend metrics"""
-        savings_kg = baseline_emissions - optimized_emissions
-        savings_percentage = (savings_kg / baseline_emissions * 100) if baseline_emissions > 0 else 0
+    def compare_scenarios(
+        self,
+        scenario1: Dict,
+        scenario2: Dict,
+        distance_km: float = 1000,
+        transport_mode: str = 'truck'
+    ) -> Dict[str, any]:
+        """
+        Compare environmental impact of two optimization scenarios.
+        
+        Args:
+            scenario1: First scenario (container, placements)
+            scenario2: Second scenario (container, placements)
+            distance_km: Transportation distance
+            transport_mode: Mode of transport
+            
+        Returns:
+            Comparison metrics
+        """
+        impact1 = self.calculate_optimization_impact(
+            scenario1['container'],
+            scenario1['placements'],
+            distance_km,
+            transport_mode
+        )
+        
+        impact2 = self.calculate_optimization_impact(
+            scenario2['container'],
+            scenario2['placements'],
+            distance_km,
+            transport_mode
+        )
+        
+        emissions_diff = impact1['emissions']['co2_emissions_kg'] - impact2['emissions']['co2_emissions_kg']
+        fuel_diff = impact1['fuel'].get('fuel_consumption_liters', 0) - impact2['fuel'].get('fuel_consumption_liters', 0)
         
         return {
-            "savings_kg": round(max(0, savings_kg), 2),
-            "savings_percentage": round(max(0, savings_percentage), 1),
-            "baseline_emissions": round(baseline_emissions, 2),
-            "optimized_emissions": round(optimized_emissions, 2)
+            'scenario1': impact1,
+            'scenario2': impact2,
+            'comparison': {
+                'emissions_difference_kg': round(emissions_diff, 2),
+                'fuel_difference_liters': round(fuel_diff, 2),
+                'cost_difference_usd': round(impact1['cost_estimate_usd'] - impact2['cost_estimate_usd'], 2),
+                'better_scenario': 'scenario2' if emissions_diff > 0 else 'scenario1',
+                'improvement_percentage': round(abs(emissions_diff / impact1['emissions']['co2_emissions_kg']) * 100, 2) if impact1['emissions']['co2_emissions_kg'] > 0 else 0
+            }
         }
     
-    def validate_vehicle_capacity(self, assignments: Dict[str, List[str]], 
-                                containers: List[Dict], vehicles: List[Dict]) -> Dict[str, List[str]]:
-        """Validate assignments against vehicle capacities"""
-        violations = {}
-        container_lookup = {c['id']: c for c in containers}
-        vehicle_lookup = {v['id']: v for v in vehicles}
+    def calculate_annual_savings(
+        self,
+        current_utilization: float,
+        improved_utilization: float,
+        shipments_per_year: int,
+        avg_distance_km: float,
+        avg_weight_kg: float,
+        transport_mode: str = 'truck'
+    ) -> Dict[str, float]:
+        """
+        Calculate annual environmental and cost savings.
         
-        for vehicle_id, container_ids in assignments.items():
-            vehicle = vehicle_lookup.get(vehicle_id)
-            if not vehicle:
-                continue
-                
-            total_weight = sum(container_lookup[cid]['weight'] for cid in container_ids)
-            total_volume = sum(container_lookup[cid]['length'] * container_lookup[cid]['width'] * container_lookup[cid]['height'] 
-                             for cid in container_ids)
-            vehicle_volume = vehicle['length'] * vehicle['width'] * vehicle['height']
+        Args:
+            current_utilization: Current average utilization
+            improved_utilization: Improved utilization with optimization
+            shipments_per_year: Number of shipments per year
+            avg_distance_km: Average distance per shipment
+            avg_weight_kg: Average cargo weight
+            transport_mode: Transportation mode
             
-            vehicle_violations = []
-            if total_weight > vehicle['max_weight']:
-                vehicle_violations.append(f"Weight exceeded: {total_weight:.1f}kg > {vehicle['max_weight']}kg")
-            if total_volume > vehicle_volume:
-                vehicle_violations.append(f"Volume exceeded: {total_volume:.1f}m³ > {vehicle_volume:.1f}m³")
-            
-            if vehicle_violations:
-                violations[vehicle_id] = vehicle_violations
+        Returns:
+            Annual savings metrics
+        """
+        # Single shipment savings
+        single_savings = self.carbon_analyzer.calculate_utilization_impact(
+            avg_weight_kg,
+            avg_weight_kg / current_utilization if current_utilization > 0 else avg_weight_kg,
+            current_utilization,
+            improved_utilization,
+            avg_distance_km,
+            transport_mode
+        )
         
-        return violations
+        # Annual totals
+        annual_emissions_saved = single_savings['emissions_saved_kg'] * shipments_per_year
+        
+        # Cost savings (approximate)
+        fuel_saved_liters = (single_savings['current_emissions_kg'] - single_savings['improved_emissions_kg']) / EmissionFactors.DIESEL_CO2_PER_LITER
+        annual_fuel_saved = fuel_saved_liters * shipments_per_year
+        fuel_cost_per_liter = 1.5
+        annual_cost_saved = annual_fuel_saved * fuel_cost_per_liter
+        
+        # Equivalent metrics
+        trees_needed = annual_emissions_saved / 21
+        cars_equivalent = annual_emissions_saved / 4600  # Average car emits ~4.6 tons CO2/year
+        
+        return {
+            'annual_emissions_saved_kg': round(annual_emissions_saved, 2),
+            'annual_emissions_saved_tons': round(annual_emissions_saved / 1000, 2),
+            'annual_fuel_saved_liters': round(annual_fuel_saved, 2),
+            'annual_cost_saved_usd': round(annual_cost_saved, 2),
+            'trees_equivalent': round(trees_needed, 1),
+            'cars_removed_equivalent': round(cars_equivalent, 2),
+            'shipments_per_year': shipments_per_year,
+            'utilization_improvement': round((improved_utilization - current_utilization) * 100, 2)
+        }
+    
+    def _calculate_rating(self, utilization: float, emissions_kg: float) -> str:
+        """
+        Calculate environmental rating.
+        
+        Args:
+            utilization: Space utilization (0-1)
+            emissions_kg: CO2 emissions
+            
+        Returns:
+            Rating string (A+ to F)
+        """
+        # Rate based on utilization
+        if utilization >= 0.9:
+            return 'A+'
+        elif utilization >= 0.8:
+            return 'A'
+        elif utilization >= 0.7:
+            return 'B'
+        elif utilization >= 0.6:
+            return 'C'
+        elif utilization >= 0.5:
+            return 'D'
+        elif utilization >= 0.4:
+            return 'E'
+        else:
+            return 'F'
+    
+    def generate_sustainability_report(
+        self,
+        optimization_result: Dict,
+        distance_km: float = 1000,
+        transport_mode: str = 'truck',
+        baseline_utilization: float = 0.65
+    ) -> Dict[str, any]:
+        """
+        Generate comprehensive sustainability report.
+        
+        Args:
+            optimization_result: Optimization result with container and placements
+            distance_km: Transportation distance
+            transport_mode: Mode of transport
+            baseline_utilization: Baseline utilization for comparison
+            
+        Returns:
+            Comprehensive sustainability report
+        """
+        container = optimization_result.get('container', {})
+        placements = optimization_result.get('placements', [])
+        utilization = optimization_result.get('utilization', 0) / 100
+        
+        # Current impact
+        current_impact = self.calculate_optimization_impact(
+            container, placements, distance_km, transport_mode
+        )
+        
+        # Baseline comparison
+        total_weight = sum(p.weight if hasattr(p, 'weight') else 0 for p in placements)
+        baseline_emissions = self.carbon_analyzer.calculate_emissions(
+            transport_mode, distance_km, total_weight, baseline_utilization
+        )
+        
+        improvement = self.carbon_analyzer.calculate_utilization_impact(
+            total_weight,
+            total_weight / baseline_utilization if baseline_utilization > 0 else total_weight,
+            baseline_utilization,
+            utilization,
+            distance_km,
+            transport_mode
+        )
+        
+        return {
+            'current_performance': current_impact,
+            'baseline_comparison': {
+                'baseline_utilization': round(baseline_utilization * 100, 2),
+                'baseline_emissions_kg': baseline_emissions['co2_emissions_kg'],
+                'improvement': improvement
+            },
+            'recommendations': self._generate_recommendations(utilization, current_impact),
+            'report_date': datetime.now().isoformat()
+        }
+    
+    def _generate_recommendations(self, utilization: float, impact: Dict) -> List[str]:
+        """Generate sustainability recommendations."""
+        recommendations = []
+        
+        if utilization < 0.7:
+            recommendations.append(
+                f"Space utilization is at {utilization*100:.1f}%. "
+                "Consider consolidating shipments to improve efficiency."
+            )
+        
+        if utilization < 0.8:
+            recommendations.append(
+                "Optimizing packing can reduce CO2 emissions by up to "
+                f"{(0.8 - utilization) * 100:.1f}%."
+            )
+        
+        rating = impact.get('environmental_rating', 'C')
+        if rating in ['D', 'E', 'F']:
+            recommendations.append(
+                "Current environmental rating is " + rating + ". "
+                "Significant improvements possible through better optimization."
+            )
+        
+        if impact['emissions']['co2_emissions_kg'] > 1000:
+            recommendations.append(
+                "Consider rail or sea transport for long distances to reduce emissions."
+            )
+        
+        return recommendations

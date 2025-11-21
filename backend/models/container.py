@@ -1,166 +1,197 @@
 """
-Container Data Models
-Container-related data structures and database models.
+Container Model
+Represents shipping containers with their specifications.
 """
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Enum, Text, JSON
-from sqlalchemy.sql import func
-import enum
+from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, field_validator
+from enum import Enum
 from datetime import datetime
 
-# Import shared Base from database config
-from backend.config.database import Base
 
-class ContainerType(enum.Enum):
-    """Container types enumeration"""
-    DRY = "dry"
-    REEFER = "reefer"
-    TANK = "tank"
-    FLATRACK = "flatrack"
-    OPEN_TOP = "open_top"
-    HIGH_CUBE = "high_cube"
-    VENTILATED = "ventilated"
-    HAZARDOUS = "hazardous"
+class ContainerType(Enum):
+    """Standard container types."""
+    STANDARD_20 = "20ft Standard"
+    STANDARD_40 = "40ft Standard"
+    HIGH_CUBE_40 = "40ft High Cube"
+    HIGH_CUBE_45 = "45ft High Cube"
+    REFRIGERATED_20 = "20ft Refrigerated"
+    REFRIGERATED_40 = "40ft Refrigerated"
+    OPEN_TOP_20 = "20ft Open Top"
+    OPEN_TOP_40 = "40ft Open Top"
+    FLAT_RACK_20 = "20ft Flat Rack"
+    FLAT_RACK_40 = "40ft Flat Rack"
+    TANK_20 = "20ft Tank"
+    CUSTOM = "Custom"
 
-class ContainerStatus(enum.Enum):
-    """Container status enumeration"""
-    EMPTY = "empty"
-    LOADED = "loaded"
-    IN_TRANSIT = "in_transit"
-    DELIVERED = "delivered"
-    DAMAGED = "damaged"
 
-class Container(Base):
-    """Container database model"""
-    __tablename__ = "containers"
-
-    # Primary key
-    id = Column(Integer, primary_key=True, index=True)
+@dataclass
+class Container:
+    """
+    Represents a shipping container.
+    """
     
-    # Container identification
-    container_number = Column(String(20), unique=True, index=True, nullable=False)
-    iso_code = Column(String(4), nullable=False)  # e.g., 22G1, 42G1, etc.
+    # Identity
+    container_id: str
+    name: Optional[str] = None
+    container_type: ContainerType = ContainerType.STANDARD_20
     
-    # Physical properties
-    length = Column(Float, nullable=False)  # in feet (20, 40, 45)
-    width = Column(Float, nullable=False)   # in feet
-    height = Column(Float, nullable=False)  # in feet
-    tare_weight = Column(Float, nullable=False)  # in kg
-    max_payload = Column(Float, nullable=False)  # in kg
-    gross_weight = Column(Float)  # in kg (tare + payload)
+    # Dimensions (in mm)
+    length: int = 5898  # 20ft container internal length
+    width: int = 2352   # 20ft container internal width
+    height: int = 2393  # 20ft container internal height
     
-    # Container type and category
-    container_type = Column(Enum(ContainerType), nullable=False)
-    status = Column(Enum(ContainerStatus), default=ContainerStatus.EMPTY)
+    # Capacity
+    max_weight: float = 28180  # kg (max payload for 20ft)
+    tare_weight: float = 2300  # kg (empty container weight)
     
-    # Cargo information
-    cargo_description = Column(Text)
-    cargo_weight = Column(Float)  # in kg
-    imdg_class = Column(String(10))  # IMDG classification for hazardous goods
-    un_number = Column(String(4))   # UN number for hazardous goods
+    # Properties
+    description: Optional[str] = None
+    is_active: bool = True
     
-    # Special requirements
-    is_reefer = Column(Boolean, default=False)
-    reefer_temperature = Column(Float)  # in Celsius
-    is_oversized = Column(Boolean, default=False)
-    requires_power = Column(Boolean, default=False)
-    
-    # Location and tracking
-    current_location = Column(String(100))
-    destination_port = Column(String(100))
+    # Temperature control (for reefer containers)
+    temperature_controlled: bool = False
+    min_temperature: Optional[float] = None
+    max_temperature: Optional[float] = None
     
     # Metadata
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    additional_properties = Column(JSON)  # Flexible field for extra data
-
-    def calculate_gross_weight(self) -> float:
-        """Calculate gross weight (tare + cargo weight)"""
-        return self.tare_weight + (self.cargo_weight or 0)
-
-    def is_overweight(self) -> bool:
-        """Check if container exceeds maximum payload"""
-        return (self.cargo_weight or 0) > self.max_payload
-
-    def is_hazardous(self) -> bool:
-        """Check if container carries hazardous goods"""
-        return self.imdg_class is not None
-
-# Pydantic models for API
-class ContainerBase(BaseModel):
-    """Base Pydantic model for Container"""
-    container_number: str
-    iso_code: str
-    length: float
-    width: float
-    height: float
-    tare_weight: float
-    max_payload: float
-    container_type: ContainerType
-    cargo_description: Optional[str] = None
-    cargo_weight: Optional[float] = None
-    imdg_class: Optional[str] = None
-    un_number: Optional[str] = None
-    is_reefer: bool = False
-    reefer_temperature: Optional[float] = None
-    is_oversized: bool = False
-    requires_power: bool = False
-    current_location: Optional[str] = None
-    destination_port: Optional[str] = None
-
-class ContainerCreate(ContainerBase):
-    """Pydantic model for creating a container"""
-    pass
-
-class ContainerUpdate(BaseModel):
-    """Pydantic model for updating a container"""
-    cargo_description: Optional[str] = None
-    cargo_weight: Optional[float] = None
-    status: Optional[ContainerStatus] = None
-    current_location: Optional[str] = None
-    destination_port: Optional[str] = None
-
-class ContainerResponse(ContainerBase):
-    """Pydantic model for container API response"""
-    id: int
-    gross_weight: float
-    status: ContainerStatus
-    is_overweight: bool
-    is_hazardous: bool
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    model_config = {"from_attributes": True, "use_enum_values": True}
-
-    @field_validator('gross_weight', mode='before')
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
+    
+    def __post_init__(self):
+        """Post-initialization processing."""
+        if isinstance(self.container_type, str):
+            self.container_type = ContainerType(self.container_type)
+    
+    @property
+    def volume_m3(self) -> float:
+        """Calculate internal volume in cubic meters."""
+        return (self.length * self.width * self.height) / 1_000_000_000
+    
+    @property
+    def volume_ft3(self) -> float:
+        """Calculate internal volume in cubic feet."""
+        return self.volume_m3 * 35.3147
+    
+    @property
+    def gross_weight(self) -> float:
+        """Calculate maximum gross weight."""
+        return self.max_weight + self.tare_weight
+    
     @classmethod
-    def calculate_gross_weight(cls, v, info):
-        """Calculate gross weight for response"""
-        if v is not None:
-            return v
-        data = info.data
-        tare_weight = data.get('tare_weight', 0)
-        cargo_weight = data.get('cargo_weight', 0) or 0
-        return tare_weight + cargo_weight
-
-    @field_validator('is_overweight', mode='before')
+    def standard_20ft(cls, container_id: str) -> 'Container':
+        """Create a standard 20ft container."""
+        return cls(
+            container_id=container_id,
+            name="20ft Standard Container",
+            container_type=ContainerType.STANDARD_20,
+            length=5898,
+            width=2352,
+            height=2393,
+            max_weight=28180,
+            tare_weight=2300
+        )
+    
     @classmethod
-    def check_overweight(cls, v, info):
-        """Check if container is overweight"""
-        if v is not None:
-            return v
-        data = info.data
-        cargo_weight = data.get('cargo_weight', 0) or 0
-        max_payload = data.get('max_payload', 0)
-        return cargo_weight > max_payload
-
-    @field_validator('is_hazardous', mode='before')
+    def standard_40ft(cls, container_id: str) -> 'Container':
+        """Create a standard 40ft container."""
+        return cls(
+            container_id=container_id,
+            name="40ft Standard Container",
+            container_type=ContainerType.STANDARD_40,
+            length=12032,
+            width=2352,
+            height=2393,
+            max_weight=26680,
+            tare_weight=3800
+        )
+    
     @classmethod
-    def check_hazardous(cls, v, info):
-        """Check if container is hazardous"""
-        if v is not None:
-            return v
-        data = info.data
-        return data.get('imdg_class') is not None
+    def high_cube_40ft(cls, container_id: str) -> 'Container':
+        """Create a 40ft high cube container."""
+        return cls(
+            container_id=container_id,
+            name="40ft High Cube Container",
+            container_type=ContainerType.HIGH_CUBE_40,
+            length=12032,
+            width=2352,
+            height=2698,
+            max_weight=26560,
+            tare_weight=3920
+        )
+    
+    @classmethod
+    def refrigerated_20ft(cls, container_id: str) -> 'Container':
+        """Create a 20ft refrigerated container."""
+        return cls(
+            container_id=container_id,
+            name="20ft Refrigerated Container",
+            container_type=ContainerType.REFRIGERATED_20,
+            length=5444,
+            width=2294,
+            height=2276,
+            max_weight=27400,
+            tare_weight=3080,
+            temperature_controlled=True,
+            min_temperature=-25.0,
+            max_temperature=25.0
+        )
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Container':
+        """Create container from dictionary."""
+        return cls(
+            container_id=data.get('container_id', ''),
+            name=data.get('name'),
+            container_type=ContainerType(data.get('container_type', 'Custom')),
+            length=data.get('length', 0),
+            width=data.get('width', 0),
+            height=data.get('height', 0),
+            max_weight=data.get('max_weight', 0),
+            tare_weight=data.get('tare_weight', 0),
+            description=data.get('description'),
+            temperature_controlled=data.get('temperature_controlled', False),
+            min_temperature=data.get('min_temperature'),
+            max_temperature=data.get('max_temperature')
+        )
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert container to dictionary."""
+        return {
+            'container_id': self.container_id,
+            'name': self.name,
+            'container_type': self.container_type.value,
+            'length': self.length,
+            'width': self.width,
+            'height': self.height,
+            'max_weight': self.max_weight,
+            'tare_weight': self.tare_weight,
+            'volume_m3': self.volume_m3,
+            'volume_ft3': self.volume_ft3,
+            'gross_weight': self.gross_weight,
+            'description': self.description,
+            'is_active': self.is_active,
+            'temperature_controlled': self.temperature_controlled,
+            'min_temperature': self.min_temperature,
+            'max_temperature': self.max_temperature,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def can_fit(self, length: int, width: int, height: int) -> bool:
+        """
+        Check if dimensions can fit in container.
+        
+        Args:
+            length, width, height: Dimensions in mm
+            
+        Returns:
+            True if dimensions can fit (considering rotation)
+        """
+        dims = sorted([length, width, height])
+        container_dims = sorted([self.length, self.width, self.height])
+        
+        return all(d <= c for d, c in zip(dims, container_dims))
+    
+    def __repr__(self) -> str:
+        return f"Container({self.container_id}, {self.container_type.value}, {self.length}x{self.width}x{self.height}mm)"

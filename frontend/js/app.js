@@ -1,582 +1,568 @@
-// Main Application
+/**
+ * CargoOpt Main Application
+ * Core application logic and initialization
+ */
+
+import { API } from './api.js';
+import { ContainerForm } from './components/forms.js';
+import { ResultsViewer } from './components/results.js';
+import { Dashboard } from './components/dashboard.js';
+import { NotificationManager } from './utils/notifications.js';
+
 class CargoOptApp {
-    constructor() {
-        this.containers = [];
-        this.items = [];
-        this.optimizationResult = null;
-        this.currentTab = 'optimization';
-        
-        this.init();
+  constructor() {
+    this.api = new API();
+    this.notifications = new NotificationManager();
+    
+    // Component instances
+    this.containerForm = null;
+    this.resultsViewer = null;
+    this.dashboard = null;
+    
+    // Application state
+    this.state = {
+      currentView: 'dashboard',
+      optimizationId: null,
+      optimizationResult: null,
+      container: null,
+      items: [],
+      isProcessing: false,
+    };
+    
+    // Event listeners
+    this.listeners = new Map();
+    
+    console.log('CargoOpt Application initialized');
+  }
+  
+  /**
+   * Initialize the application
+   */
+  async init() {
+    try {
+      console.log('Initializing CargoOpt...');
+      
+      // Check API connection
+      await this.checkAPIConnection();
+      
+      // Initialize components
+      this.initializeComponents();
+      
+      // Set up event listeners
+      this.setupEventListeners();
+      
+      // Load initial data
+      await this.loadInitialData();
+      
+      // Set initial view
+      this.navigateTo('dashboard');
+      
+      // Register service worker for PWA
+      this.registerServiceWorker();
+      
+      console.log('CargoOpt initialized successfully');
+      this.notifications.success('Application loaded successfully');
+      
+    } catch (error) {
+      console.error('Initialization error:', error);
+      this.notifications.error('Failed to initialize application');
+      this.handleError(error);
     }
-
-    init() {
-        console.log('🚀 Initializing CargoOpt Application...');
-        
-        // Initialize components
-        this.forms = new FormsManager(this);
-        
-        // Setup event listeners
-        this.setupEventListeners();
-        
-        // Check API status
-        this.checkApiStatus();
-        
-        // Initialize tab system
-        this.initializeTabs();
-        
-        // Load standard containers
-        this.loadStandardContainers();
-        
-        console.log('✅ Application initialized');
+  }
+  
+  /**
+   * Check API connection
+   */
+  async checkAPIConnection() {
+    try {
+      const health = await this.api.checkHealth();
+      console.log('API Status:', health.status);
+      
+      if (health.status !== 'healthy') {
+        throw new Error('API is not healthy');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('API connection failed:', error);
+      throw new Error('Cannot connect to backend API');
     }
-
-    setupEventListeners() {
-        // Tab navigation
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.switchTab(e.target.dataset.tab);
-            });
+  }
+  
+  /**
+   * Initialize all components
+   */
+  initializeComponents() {
+    // Initialize Container Form
+    this.containerForm = new ContainerForm({
+      containerId: 'container-form',
+      onSubmit: this.handleOptimizationSubmit.bind(this),
+      onCancel: () => this.navigateTo('dashboard'),
+    });
+    
+    // Initialize Results Viewer
+    this.resultsViewer = new ResultsViewer({
+      containerId: 'results-viewer',
+      onBack: () => this.navigateTo('dashboard'),
+      onExport: this.handleExport.bind(this),
+    });
+    
+    // Initialize Dashboard
+    this.dashboard = new Dashboard({
+      containerId: 'dashboard',
+      onNewOptimization: () => this.navigateTo('form'),
+      onViewResult: this.handleViewResult.bind(this),
+      onDeleteResult: this.handleDeleteResult.bind(this),
+    });
+    
+    console.log('Components initialized');
+  }
+  
+  /**
+   * Set up global event listeners
+   */
+  setupEventListeners() {
+    // Navigation events
+    document.addEventListener('click', (e) => {
+      if (e.target.matches('[data-navigate]')) {
+        e.preventDefault();
+        const view = e.target.dataset.navigate;
+        this.navigateTo(view);
+      }
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Ctrl/Cmd + N: New optimization
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        this.navigateTo('form');
+      }
+      
+      // Escape: Go back to dashboard
+      if (e.key === 'Escape' && this.state.currentView !== 'dashboard') {
+        this.navigateTo('dashboard');
+      }
+    });
+    
+    // Window resize handler
+    window.addEventListener('resize', this.handleResize.bind(this));
+    
+    // Online/offline detection
+    window.addEventListener('online', () => {
+      this.notifications.success('Connection restored');
+      this.handleOnline();
+    });
+    
+    window.addEventListener('offline', () => {
+      this.notifications.warning('Connection lost. Working offline.');
+      this.handleOffline();
+    });
+    
+    // Before unload warning
+    window.addEventListener('beforeunload', (e) => {
+      if (this.state.isProcessing) {
+        e.preventDefault();
+        e.returnValue = 'Optimization in progress. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    });
+  }
+  
+  /**
+   * Load initial data from API
+   */
+  async loadInitialData() {
+    try {
+      // Load configuration
+      const config = await this.api.getConfig();
+      this.state.config = config;
+      
+      // Load recent optimizations
+      const history = await this.api.getOptimizationHistory({ limit: 10 });
+      this.state.history = history;
+      
+      // Update dashboard
+      if (this.dashboard) {
+        this.dashboard.updateHistory(history);
+      }
+      
+      console.log('Initial data loaded');
+    } catch (error) {
+      console.error('Failed to load initial data:', error);
+      // Non-critical error, continue with defaults
+    }
+  }
+  
+  /**
+   * Navigate to a view
+   */
+  navigateTo(view) {
+    console.log(`Navigating to: ${view}`);
+    
+    // Hide all views
+    document.querySelectorAll('.view').forEach(el => {
+      el.classList.add('hidden');
+    });
+    
+    // Show target view
+    const targetView = document.getElementById(`${view}-view`);
+    if (targetView) {
+      targetView.classList.remove('hidden');
+      targetView.classList.add('animate-fade-in');
+    }
+    
+    // Update navigation state
+    this.updateNavigation(view);
+    
+    // Update state
+    this.state.currentView = view;
+    
+    // Trigger view-specific actions
+    this.onViewChange(view);
+  }
+  
+  /**
+   * Update navigation UI
+   */
+  updateNavigation(activeView) {
+    document.querySelectorAll('[data-navigate]').forEach(el => {
+      if (el.dataset.navigate === activeView) {
+        el.classList.add('active');
+      } else {
+        el.classList.remove('active');
+      }
+    });
+  }
+  
+  /**
+   * Handle view change
+   */
+  onViewChange(view) {
+    switch (view) {
+      case 'dashboard':
+        this.dashboard?.refresh();
+        break;
+      case 'form':
+        this.containerForm?.reset();
+        break;
+      case 'results':
+        // Results are loaded when navigating
+        break;
+    }
+  }
+  
+  /**
+   * Handle optimization submission
+   */
+  async handleOptimizationSubmit(data) {
+    try {
+      this.state.isProcessing = true;
+      this.notifications.info('Starting optimization...');
+      
+      console.log('Submitting optimization:', data);
+      
+      // Submit optimization request
+      const result = await this.api.optimize({
+        container: data.container,
+        items: data.items,
+        algorithm: data.algorithm || 'genetic',
+        parameters: data.parameters,
+      });
+      
+      this.state.optimizationId = result.optimization_id;
+      
+      // Poll for results if async
+      if (result.status === 'pending' || result.status === 'running') {
+        await this.pollOptimizationStatus(result.optimization_id);
+      } else {
+        this.handleOptimizationComplete(result);
+      }
+      
+    } catch (error) {
+      console.error('Optimization error:', error);
+      this.notifications.error('Optimization failed: ' + error.message);
+      this.handleError(error);
+    } finally {
+      this.state.isProcessing = false;
+    }
+  }
+  
+  /**
+   * Poll optimization status
+   */
+  async pollOptimizationStatus(optimizationId) {
+    const maxAttempts = 60; // 5 minutes with 5 second intervals
+    let attempts = 0;
+    
+    const poll = async () => {
+      try {
+        attempts++;
+        
+        const status = await this.api.getOptimizationStatus(optimizationId);
+        console.log('Optimization status:', status.status);
+        
+        if (status.status === 'completed') {
+          const result = await this.api.getOptimizationResult(optimizationId);
+          this.handleOptimizationComplete(result);
+          return;
+        }
+        
+        if (status.status === 'failed') {
+          throw new Error(status.error || 'Optimization failed');
+        }
+        
+        if (status.status === 'cancelled') {
+          this.notifications.warning('Optimization was cancelled');
+          return;
+        }
+        
+        if (attempts >= maxAttempts) {
+          throw new Error('Optimization timeout');
+        }
+        
+        // Update progress if available
+        if (status.progress !== undefined) {
+          this.updateProgress(status.progress);
+        }
+        
+        // Continue polling
+        setTimeout(poll, 5000);
+        
+      } catch (error) {
+        console.error('Polling error:', error);
+        this.notifications.error('Failed to get optimization status');
+        this.state.isProcessing = false;
+      }
+    };
+    
+    poll();
+  }
+  
+  /**
+   * Handle optimization completion
+   */
+  handleOptimizationComplete(result) {
+    console.log('Optimization completed:', result);
+    
+    this.state.optimizationResult = result;
+    this.state.isProcessing = false;
+    
+    // Show results
+    this.resultsViewer.displayResults(result);
+    this.navigateTo('results');
+    
+    // Show success notification
+    this.notifications.success(
+      `Optimization complete! Utilization: ${result.utilization.toFixed(1)}%`
+    );
+    
+    // Refresh dashboard history
+    this.loadInitialData();
+  }
+  
+  /**
+   * Update progress indicator
+   */
+  updateProgress(progress) {
+    const progressBar = document.getElementById('optimization-progress');
+    if (progressBar) {
+      progressBar.style.width = `${progress}%`;
+      progressBar.textContent = `${Math.round(progress)}%`;
+    }
+  }
+  
+  /**
+   * Handle viewing a result from history
+   */
+  async handleViewResult(optimizationId) {
+    try {
+      this.notifications.info('Loading optimization result...');
+      
+      const result = await this.api.getOptimizationResult(optimizationId);
+      
+      this.state.optimizationResult = result;
+      this.resultsViewer.displayResults(result);
+      this.navigateTo('results');
+      
+    } catch (error) {
+      console.error('Failed to load result:', error);
+      this.notifications.error('Failed to load optimization result');
+    }
+  }
+  
+  /**
+   * Handle deleting a result
+   */
+  async handleDeleteResult(optimizationId) {
+    if (!confirm('Are you sure you want to delete this optimization?')) {
+      return;
+    }
+    
+    try {
+      await this.api.deleteOptimization(optimizationId);
+      this.notifications.success('Optimization deleted');
+      
+      // Refresh history
+      await this.loadInitialData();
+      
+    } catch (error) {
+      console.error('Failed to delete:', error);
+      this.notifications.error('Failed to delete optimization');
+    }
+  }
+  
+  /**
+   * Handle export request
+   */
+  async handleExport(format, optimizationId) {
+    try {
+      this.notifications.info(`Exporting as ${format.toUpperCase()}...`);
+      
+      const blob = await this.api.exportResult(optimizationId, format);
+      
+      // Download file
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `optimization_${optimizationId}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      this.notifications.success('Export complete');
+      
+    } catch (error) {
+      console.error('Export error:', error);
+      this.notifications.error('Export failed');
+    }
+  }
+  
+  /**
+   * Handle window resize
+   */
+  handleResize() {
+    // Update 3D viewer if visible
+    if (this.state.currentView === 'results' && this.resultsViewer) {
+      this.resultsViewer.handleResize();
+    }
+  }
+  
+  /**
+   * Handle online event
+   */
+  handleOnline() {
+    // Retry any failed requests
+    this.api.retryFailedRequests();
+  }
+  
+  /**
+   * Handle offline event
+   */
+  handleOffline() {
+    // Switch to offline mode
+    this.state.isOffline = true;
+  }
+  
+  /**
+   * Handle errors
+   */
+  handleError(error) {
+    console.error('Application error:', error);
+    
+    // Log to error tracking service (e.g., Sentry)
+    if (window.Sentry) {
+      window.Sentry.captureException(error);
+    }
+    
+    // Show user-friendly error message
+    const message = this.getErrorMessage(error);
+    this.notifications.error(message);
+  }
+  
+  /**
+   * Get user-friendly error message
+   */
+  getErrorMessage(error) {
+    if (error.response) {
+      return error.response.data.message || 'Server error occurred';
+    }
+    
+    if (error.request) {
+      return 'Cannot connect to server. Please check your connection.';
+    }
+    
+    return error.message || 'An unexpected error occurred';
+  }
+  
+  /**
+   * Register service worker for PWA
+   */
+  registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(registration => {
+          console.log('Service Worker registered:', registration);
+        })
+        .catch(error => {
+          console.log('Service Worker registration failed:', error);
         });
-
-        // Algorithm selector
-        const algorithmSelect = document.getElementById('algorithm-select');
-        if (algorithmSelect) {
-            algorithmSelect.addEventListener('change', (e) => {
-                this.handleAlgorithmChange(e.target.value);
-            });
-        }
-
-        // Optimization buttons
-        const validateBtn = document.getElementById('validate-btn');
-        if (validateBtn) {
-            validateBtn.addEventListener('click', () => this.validateData());
-        }
-
-        const optimizeBtn = document.getElementById('optimize-btn');
-        if (optimizeBtn) {
-            optimizeBtn.addEventListener('click', () => this.runOptimization());
-        }
-
-        const compareBtn = document.getElementById('compare-btn');
-        if (compareBtn) {
-            compareBtn.addEventListener('click', () => this.compareAlgorithms());
-        }
-
-        // Container management
-        const addContainerBtn = document.getElementById('add-container-btn');
-        if (addContainerBtn) {
-            addContainerBtn.addEventListener('click', () => this.forms.showContainerModal());
-        }
-
-        const saveContainerBtn = document.getElementById('save-container');
-        if (saveContainerBtn) {
-            saveContainerBtn.addEventListener('click', () => this.forms.saveContainer());
-        }
-
-        // Item management
-        const addItemBtn = document.getElementById('add-item-btn');
-        if (addItemBtn) {
-            addItemBtn.addEventListener('click', () => this.forms.showItemModal());
-        }
-
-        const saveItemBtn = document.getElementById('save-item');
-        if (saveItemBtn) {
-            saveItemBtn.addEventListener('click', () => this.forms.saveItem());
-        }
-
-        const loadSampleItemsBtn = document.getElementById('load-sample-items');
-        if (loadSampleItemsBtn) {
-            loadSampleItemsBtn.addEventListener('click', () => this.forms.generateSampleData());
-        }
-
-        // Quick actions
-        const loadSampleDataBtn = document.getElementById('load-sample-data');
-        if (loadSampleDataBtn) {
-            loadSampleDataBtn.addEventListener('click', () => this.forms.generateSampleData());
-        }
-
-        const exportResultsBtn = document.getElementById('export-results');
-        if (exportResultsBtn) {
-            exportResultsBtn.addEventListener('click', () => this.exportResults());
-        }
-
-        const clearDataBtn = document.getElementById('clear-data');
-        if (clearDataBtn) {
-            clearDataBtn.addEventListener('click', () => this.clearAllData());
-        }
-
-        // History
-        const refreshHistoryBtn = document.getElementById('refresh-history');
-        if (refreshHistoryBtn) {
-            refreshHistoryBtn.addEventListener('click', () => this.loadHistory());
-        }
-
-        // Modal close buttons
-        document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.target.closest('.modal').classList.remove('active');
-            });
-        });
-
-        // Close modals on backdrop click
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                }
-            });
-        });
     }
-
-    initializeTabs() {
-        this.switchTab('optimization');
+  }
+  
+  /**
+   * Get current state
+   */
+  getState() {
+    return { ...this.state };
+  }
+  
+  /**
+   * Update state
+   */
+  setState(updates) {
+    this.state = { ...this.state, ...updates };
+    this.emit('stateChange', this.state);
+  }
+  
+  /**
+   * Event emitter
+   */
+  on(event, callback) {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, []);
     }
-
-    switchTab(tabName) {
-        // Update tab buttons
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.tab === tabName);
-        });
-
-        // Update tab content
-        document.querySelectorAll('.tab-content').forEach(content => {
-            content.classList.toggle('active', content.id === tabName);
-        });
-
-        this.currentTab = tabName;
-
-        // Load data for specific tabs
-        if (tabName === 'history') {
-            this.loadHistory();
-        }
+    this.listeners.get(event).push(callback);
+  }
+  
+  emit(event, data) {
+    if (this.listeners.has(event)) {
+      this.listeners.get(event).forEach(callback => callback(data));
     }
-
-    handleAlgorithmChange(algorithm) {
-        const geneticParams = document.getElementById('genetic-params');
-        if (geneticParams) {
-            geneticParams.style.display = algorithm === 'genetic' ? 'block' : 'none';
-        }
-    }
-
-    async checkApiStatus() {
-        try {
-            const response = await apiService.getHealth();
-            
-            const apiStatus = document.getElementById('api-status');
-            const dbStatus = document.getElementById('db-status');
-            
-            if (response.success) {
-                if (apiStatus) apiStatus.textContent = '✅ Online';
-                if (dbStatus) dbStatus.textContent = '✅ Connected';
-                this.updateLastUpdate();
-            } else {
-                if (apiStatus) apiStatus.textContent = '❌ Offline';
-                if (dbStatus) dbStatus.textContent = '❌ Disconnected';
-            }
-        } catch (error) {
-            console.error('Failed to check API status:', error);
-            const apiStatus = document.getElementById('api-status');
-            if (apiStatus) apiStatus.textContent = '❌ Offline';
-        }
-    }
-
-    updateLastUpdate() {
-        const lastUpdate = document.getElementById('last-update');
-        if (lastUpdate) {
-            lastUpdate.textContent = new Date().toLocaleTimeString();
-        }
-    }
-
-    async validateData() {
-        if (this.containers.length === 0) {
-            this.showNotification('Please add at least one container', 'error');
-            return;
-        }
-
-        if (this.items.length === 0) {
-            this.showNotification('Please add at least one item', 'error');
-            return;
-        }
-
-        this.showLoading(true);
-
-        try {
-            const response = await apiService.validateData(this.containers[0], this.items);
-            
-            if (response.success) {
-                this.showNotification('✅ Data validation passed!', 'success');
-            } else {
-                this.showNotification(`❌ Validation failed: ${response.error}`, 'error');
-            }
-        } catch (error) {
-            this.showNotification(`Validation error: ${error.message}`, 'error');
-        } finally {
-            this.showLoading(false);
-        }
-    }
-
-    async runOptimization() {
-        if (this.containers.length === 0) {
-            this.showNotification('Please add at least one container', 'error');
-            return;
-        }
-
-        if (this.items.length === 0) {
-            this.showNotification('Please add at least one item', 'error');
-            return;
-        }
-
-        const algorithm = document.getElementById('algorithm-select').value;
-        const strategy = document.getElementById('strategy-select').value;
-
-        this.showLoading(true);
-
-        try {
-            const requestData = {
-                container: this.containers[0],
-                items: this.items,
-                strategy: strategy
-            };
-
-            // Add genetic algorithm parameters if selected
-            if (algorithm === 'genetic') {
-                requestData.generations = parseInt(document.getElementById('generations').value);
-                requestData.population_size = parseInt(document.getElementById('population-size').value);
-                requestData.mutation_rate = parseFloat(document.getElementById('mutation-rate').value);
-            }
-
-            let response;
-            switch (algorithm) {
-                case 'packing':
-                    response = await apiService.optimizePacking(requestData);
-                    break;
-                case 'genetic':
-                    response = await apiService.optimizeGenetic(requestData);
-                    break;
-                case 'stowage':
-                    response = await apiService.optimizeStowage(requestData);
-                    break;
-                default:
-                    response = await apiService.optimizeAuto(requestData);
-            }
-
-            if (response.success) {
-                this.optimizationResult = response.data;
-                this.displayResults(response.data);
-                this.showNotification('✅ Optimization completed successfully!', 'success');
-                
-                // Switch to results tab
-                this.switchTab('results');
-            } else {
-                this.showNotification(`❌ Optimization failed: ${response.error}`, 'error');
-            }
-        } catch (error) {
-            this.showNotification(`Optimization error: ${error.message}`, 'error');
-        } finally {
-            this.showLoading(false);
-        }
-    }
-
-    async compareAlgorithms() {
-        if (this.containers.length === 0 || this.items.length === 0) {
-            this.showNotification('Please add containers and items first', 'error');
-            return;
-        }
-
-        this.showLoading(true);
-
-        try {
-            const requestData = {
-                container: this.containers[0],
-                items: this.items
-            };
-
-            const response = await apiService.compareAlgorithms(requestData);
-
-            if (response.success) {
-                this.displayComparisonResults(response.data);
-                this.showNotification('Algorithm comparison completed', 'success');
-            } else {
-                this.showNotification(`Comparison failed: ${response.error}`, 'error');
-            }
-        } catch (error) {
-            this.showNotification(`Comparison error: ${error.message}`, 'error');
-        } finally {
-            this.showLoading(false);
-        }
-    }
-
-    displayResults(result) {
-        // Update metrics
-        document.getElementById('metric-utilization').textContent = 
-            `${(result.utilization_rate * 100).toFixed(1)}%`;
-        document.getElementById('metric-items').textContent = result.total_items_packed;
-        document.getElementById('metric-weight').textContent = 
-            `${((result.total_weight_used / this.containers[0].max_weight) * 100).toFixed(1)}%`;
-        document.getElementById('metric-efficiency').textContent = 
-            `${(result.utilization_rate * 100).toFixed(0)}%`;
-
-        // Display placements table
-        this.displayPlacementsTable(result.placements);
-
-        // Show visualization placeholder
-        const vizContainer = document.getElementById('visualization-container');
-        if (vizContainer) {
-            vizContainer.innerHTML = `
-                <div class="visualization-active">
-                    <p>✅ ${result.total_items_packed} items packed</p>
-                    <p>📦 Space utilization: ${(result.utilization_rate * 100).toFixed(1)}%</p>
-                    <p>⚖️ Weight utilization: ${((result.total_weight_used / this.containers[0].max_weight) * 100).toFixed(1)}%</p>
-                    <small>3D visualization integration coming soon</small>
-                </div>
-            `;
-        }
-    }
-
-    displayPlacementsTable(placements) {
-        const tbody = document.getElementById('placements-table-body');
-        if (!tbody) return;
-
-        tbody.innerHTML = placements.map(p => `
-            <tr>
-                <td>${p.item_id}</td>
-                <td>(${p.position[0].toFixed(1)}, ${p.position[1].toFixed(1)}, ${p.position[2].toFixed(1)})</td>
-                <td>${p.dimensions[0]} × ${p.dimensions[1]} × ${p.dimensions[2]} cm</td>
-                <td>${p.rotated ? 'Yes' : 'No'}</td>
-                <td>${p.volume.toFixed(2)} cm³</td>
-            </tr>
-        `).join('');
-    }
-
-    displayComparisonResults(results) {
-        // Display comparison in a modal or alert
-        const summary = results.algorithms.map(algo => 
-            `${algo.algorithm}: ${(algo.utilization_rate * 100).toFixed(1)}% utilization`
-        ).join('\n');
-
-        alert(`Algorithm Comparison Results:\n\n${summary}\n\nBest: ${results.best_algorithm}`);
-    }
-
-    async loadHistory() {
-        const limit = document.getElementById('history-limit')?.value || 10;
-        const algorithm = document.getElementById('history-algorithm')?.value || null;
-
-        try {
-            const response = await apiService.getOptimizationHistory(limit, algorithm);
-
-            if (response.success) {
-                this.displayHistory(response.data.history);
-            }
-        } catch (error) {
-            console.error('Failed to load history:', error);
-        }
-    }
-
-    displayHistory(history) {
-        const tbody = document.getElementById('history-table-body');
-        if (!tbody) return;
-
-        if (!history || history.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6">No history available</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = history.map(item => `
-            <tr>
-                <td>${new Date(item.created_at).toLocaleString()}</td>
-                <td>${item.algorithm}</td>
-                <td>${(item.utilization_rate * 100).toFixed(1)}%</td>
-                <td>${item.total_items_packed}</td>
-                <td>${item.execution_time ? item.execution_time.toFixed(2) + 's' : 'N/A'}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline" onclick="app.loadHistoryItem(${item.id})">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    loadStandardContainers() {
-        const standardContainers = [
-            { name: "20ft Standard", length: 589, width: 235, height: 239, max_weight: 28200, type: "standard_20ft" },
-            { name: "40ft Standard", length: 1203, width: 235, height: 239, max_weight: 26700, type: "standard_40ft" },
-            { name: "40ft High Cube", length: 1203, width: 235, height: 269, max_weight: 26700, type: "high_cube_40ft" },
-            { name: "20ft Reefer", length: 542, width: 228, height: 216, max_weight: 27400, type: "reefer_20ft" }
-        ];
-
-        const container = document.getElementById('standard-containers');
-        if (!container) return;
-
-        container.innerHTML = standardContainers.map(c => `
-            <div class="standard-container-card" onclick="app.forms.showContainerModal(${JSON.stringify(c).replace(/"/g, '&quot;')})">
-                <h4>${c.name}</h4>
-                <p>${c.length}×${c.width}×${c.height} cm</p>
-                <p>Max: ${c.max_weight} kg</p>
-            </div>
-        `).join('');
-    }
-
-    renderContainers() {
-        const grid = document.getElementById('containers-grid');
-        if (!grid) return;
-
-        if (this.containers.length === 0) {
-            grid.innerHTML = '<div class="empty-state">No containers added yet</div>';
-            return;
-        }
-
-        grid.innerHTML = this.containers.map((c, i) => `
-            <div class="container-card">
-                <h4>${c.name}</h4>
-                <p>📏 ${c.length}×${c.width}×${c.height} cm</p>
-                <p>⚖️ Max: ${c.max_weight} kg</p>
-                <div class="card-actions">
-                    <button class="btn btn-sm btn-outline" onclick="app.forms.editContainer(${i})">Edit</button>
-                    <button class="btn btn-sm btn-danger" onclick="app.deleteContainer(${i})">Delete</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    renderItems() {
-        const tbody = document.getElementById('items-table-body');
-        if (!tbody) return;
-
-        if (this.items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7">No items added yet</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = this.items.map((item, i) => `
-            <tr>
-                <td>${item.id}</td>
-                <td>${item.name}</td>
-                <td>${item.length}×${item.width}×${item.height}</td>
-                <td>${item.weight}</td>
-                <td>${item.quantity}</td>
-                <td>
-                    ${item.fragile ? '⚠️' : ''}
-                    ${item.stackable ? '📚' : ''}
-                    ${item.rotation_allowed ? '🔄' : ''}
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-outline" onclick="app.forms.editItem(${i})">Edit</button>
-                    <button class="btn btn-sm btn-danger" onclick="app.deleteItem(${i})">Delete</button>
-                </td>
-            </tr>
-        `).join('');
-
-        this.updateItemsSummary();
-    }
-
-    updateItemsSummary() {
-        const totalItems = this.items.reduce((sum, item) => sum + item.quantity, 0);
-        const totalVolume = this.items.reduce((sum, item) => 
-            sum + (item.length * item.width * item.height * item.quantity / 1000000), 0);
-        const totalWeight = this.items.reduce((sum, item) => 
-            sum + (item.weight * item.quantity), 0);
-
-        document.getElementById('total-items').textContent = totalItems;
-        document.getElementById('total-volume').textContent = totalVolume.toFixed(2) + ' m³';
-        document.getElementById('total-weight').textContent = totalWeight.toFixed(0) + ' kg';
-    }
-
-    updatePreviewStats() {
-        document.getElementById('preview-containers').textContent = this.containers.length;
-        document.getElementById('preview-items').textContent = 
-            this.items.reduce((sum, item) => sum + item.quantity, 0);
-        
-        const totalVolume = this.items.reduce((sum, item) => 
-            sum + (item.length * item.width * item.height * item.quantity / 1000000), 0);
-        document.getElementById('preview-volume').textContent = totalVolume.toFixed(2) + ' m³';
-    }
-
-    deleteContainer(index) {
-        if (confirm('Are you sure you want to delete this container?')) {
-            this.containers.splice(index, 1);
-            this.renderContainers();
-            this.updatePreviewStats();
-            this.showNotification('Container deleted', 'success');
-        }
-    }
-
-    deleteItem(index) {
-        if (confirm('Are you sure you want to delete this item?')) {
-            this.items.splice(index, 1);
-            this.renderItems();
-            this.updatePreviewStats();
-            this.showNotification('Item deleted', 'success');
-        }
-    }
-
-    clearAllData() {
-        if (confirm('Are you sure you want to clear all data?')) {
-            this.containers = [];
-            this.items = [];
-            this.optimizationResult = null;
-            
-            this.renderContainers();
-            this.renderItems();
-            this.updatePreviewStats();
-            
-            this.showNotification('All data cleared', 'success');
-        }
-    }
-
-    async exportResults() {
-        if (!this.optimizationResult) {
-            this.showNotification('No results to export', 'error');
-            return;
-        }
-
-        try {
-            const response = await apiService.exportResult(this.optimizationResult, 'excel');
-            
-            if (response.success) {
-                this.showNotification('Export successful!', 'success');
-                // Trigger download
-                window.open(response.data.download_url, '_blank');
-            }
-        } catch (error) {
-            this.showNotification(`Export failed: ${error.message}`, 'error');
-        }
-    }
-
-    showLoading(show) {
-        const overlay = document.getElementById('loading-overlay');
-        if (overlay) {
-            overlay.style.display = show ? 'flex' : 'none';
-        }
-    }
-
-    showNotification(message, type = 'info') {
-        const container = document.getElementById('notifications');
-        if (!container) {
-            console.log(`[${type}] ${message}`);
-            return;
-        }
-
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.innerHTML = `
-            <span>${message}</span>
-            <button onclick="this.parentElement.remove()">×</button>
-        `;
-
-        container.appendChild(notification);
-
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
-        }, 5000);
-    }
+  }
+  
+  /**
+   * Cleanup
+   */
+  destroy() {
+    // Remove event listeners
+    this.listeners.clear();
+    
+    // Destroy components
+    this.containerForm?.destroy();
+    this.resultsViewer?.destroy();
+    this.dashboard?.destroy();
+    
+    console.log('CargoOpt application destroyed');
+  }
 }
 
 // Initialize app when DOM is ready
-let app;
 document.addEventListener('DOMContentLoaded', () => {
-    app = new CargoOptApp();
-    window.app = app; // Make available globally for onclick handlers
+  window.cargoApp = new CargoOptApp();
+  window.cargoApp.init();
 });
+
+// Export for use in other modules
+export default CargoOptApp;

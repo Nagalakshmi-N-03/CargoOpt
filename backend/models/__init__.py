@@ -1,26 +1,20 @@
 """
-CargoOpt Data Models Package
-Database models and data structures for the CargoOpt system.
+CargoOpt Models Package
+Database models and domain objects.
 """
 
-from backend.models.container import Container, ContainerType, ContainerStatus
-from backend.models.vessel import Vessel, VesselType, VesselCompartment
-from backend.models.stowage_plan import (
-    StowagePlan, 
-    StowagePosition, 
-    OptimizationResult,
-    StowagePlanStatus
-)
+from backend.models.container import Container, ContainerType
+from backend.models.item import Item, ItemType
+from backend.models.vessel import Vessel, VesselType
+from backend.models.stowage_plan import StowagePlan, StowagePosition
 
 __all__ = [
-    "Container",
-    "ContainerType", 
-    "ContainerStatus",
-    "Vessel",
-    "VesselType",
-    "VesselCompartment",
-    "StowagePlan",
-    "StowagePosition",
-    "OptimizationResult",
-    "StowagePlanStatus",
+    'Container',
+    'ContainerType',
+    'Item',
+    'ItemType',
+    'Vessel',
+    'VesselType',
+    'StowagePlan',
+    'StowagePosition'
 ]

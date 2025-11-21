@@ -1,285 +1,446 @@
-import logging
-from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass
-import math
+"""
+Validation Service
+Provides comprehensive validation for optimization inputs and results.
+"""
 
-from backend.utils.math_utils import MathUtils, Vector3D, BoundingBox
+from typing import Dict, List, Tuple, Any, Optional
+from datetime import datetime
 
-logger = logging.getLogger(__name__)
+from backend.config.settings import Config
+from backend.utils.logger import get_logger
 
-@dataclass
-class ValidationResult:
-    is_valid: bool
-    issues: List[str]
-    warnings: List[str]
-    metrics: Dict[str, Any]
+logger = get_logger(__name__)
+
+
+class ContainerValidator:
+    """Validates container specifications."""
     
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            'is_valid': self.is_valid,
-            'issues': self.issues,
-            'warnings': self.warnings,
-            'metrics': self.metrics
-        }
-
-class ValidationService:
-    def __init__(self):
-        self.logger = logging.getLogger(__name__)
-    
-    def validate_container_data(self, container_data: Dict[str, Any]) -> ValidationResult:
-        """Validate container data"""
-        issues = []
-        warnings = []
+    @staticmethod
+    def validate(container: Dict) -> Tuple[bool, List[str]]:
+        """
+        Validate container data.
         
-        required_fields = ['length', 'width', 'height', 'max_weight']
+        Args:
+            container: Container dictionary
+            
+        Returns:
+            Tuple of (is_valid, list of errors)
+        """
+        errors = []
+        
+        # Required fields
+        required_fields = ['length', 'width', 'height']
         for field in required_fields:
-            if field not in container_data:
-                issues.append(f"Missing required field: {field}")
+            if field not in container:
+                errors.append(f"Missing required field: {field}")
+            elif not isinstance(container[field], (int, float)) or container[field] <= 0:
+                errors.append(f"Field '{field}' must be a positive number")
         
-        if not issues:
-            # Validate dimensions
-            length = container_data.get('length', 0)
-            width = container_data.get('width', 0)
-            height = container_data.get('height', 0)
-            max_weight = container_data.get('max_weight', 0)
+        # Max weight validation
+        if 'max_weight' in container:
+            if not isinstance(container['max_weight'], (int, float)) or container['max_weight'] <= 0:
+                errors.append("max_weight must be a positive number")
+        
+        # Dimension limits
+        if all(f in container for f in required_fields):
+            if container['length'] > 50000:
+                errors.append("Container length exceeds maximum (50,000 mm)")
+            if container['width'] > 10000:
+                errors.append("Container width exceeds maximum (10,000 mm)")
+            if container['height'] > 10000:
+                errors.append("Container height exceeds maximum (10,000 mm)")
             
-            if length <= 0:
-                issues.append("Container length must be positive")
-            if width <= 0:
-                issues.append("Container width must be positive")
-            if height <= 0:
-                issues.append("Container height must be positive")
-            if max_weight <= 0:
-                issues.append("Container max weight must be positive")
-            
-            # Check for reasonable dimensions
-            if length > 10000:  # 100 meters
-                warnings.append("Container length seems unusually large")
-            if width > 10000:
-                warnings.append("Container width seems unusually large")
-            if height > 10000:
-                warnings.append("Container height seems unusually large")
-            if max_weight > 1000000:  # 1000 tons
-                warnings.append("Container max weight seems unusually large")
+            # Volume check
+            volume = container['length'] * container['width'] * container['height']
+            if volume < 1000:
+                errors.append("Container volume too small (minimum 1 liter)")
         
-        metrics = {
-            'container_volume': length * width * height if not issues else 0,
-            'has_required_fields': len(issues) == 0
-        }
+        # Container type validation
+        if 'container_type' in container:
+            valid_types = Config.CONTAINER_TYPES
+            if container['container_type'] not in valid_types:
+                errors.append(f"Invalid container_type. Must be one of: {', '.join(valid_types)}")
         
-        return ValidationResult(
-            is_valid=len(issues) == 0,
-            issues=issues,
-            warnings=warnings,
-            metrics=metrics
-        )
+        return len(errors) == 0, errors
+
+
+class ItemValidator:
+    """Validates item specifications."""
     
-    def validate_cargo_item(self, item_data: Dict[str, Any]) -> ValidationResult:
-        """Validate individual cargo item"""
-        issues = []
-        warnings = []
+    @staticmethod
+    def validate(item: Dict, item_index: int = 0) -> Tuple[bool, List[str]]:
+        """
+        Validate item data.
         
-        required_fields = ['id', 'length', 'width', 'height', 'weight']
+        Args:
+            item: Item dictionary
+            item_index: Index of item in list (for error messages)
+            
+        Returns:
+            Tuple of (is_valid, list of errors)
+        """
+        errors = []
+        prefix = f"Item {item_index + 1}: "
+        
+        # Required fields
+        required_fields = ['length', 'width', 'height', 'weight']
         for field in required_fields:
-            if field not in item_data:
-                issues.append(f"Missing required field: {field}")
+            if field not in item:
+                errors.append(f"{prefix}Missing required field: {field}")
+            elif not isinstance(item[field], (int, float)) or item[field] <= 0:
+                errors.append(f"{prefix}Field '{field}' must be a positive number")
         
-        if not issues:
-            # Validate dimensions and weight
-            length = item_data.get('length', 0)
-            width = item_data.get('width', 0)
-            height = item_data.get('height', 0)
-            weight = item_data.get('weight', 0)
-            quantity = item_data.get('quantity', 1)
-            
-            if length <= 0:
-                issues.append("Item length must be positive")
-            if width <= 0:
-                issues.append("Item width must be positive")
-            if height <= 0:
-                issues.append("Item height must be positive")
-            if weight <= 0:
-                issues.append("Item weight must be positive")
-            if quantity <= 0:
-                issues.append("Item quantity must be positive")
-            
-            # Check for reasonable values
-            if length > 1000:  # 10 meters
-                warnings.append("Item length seems unusually large")
-            if width > 1000:
-                warnings.append("Item width seems unusually large")
-            if height > 1000:
-                warnings.append("Item height seems unusually large")
-            if weight > 10000:  # 10 tons
-                warnings.append("Item weight seems unusually large")
-            if quantity > 1000:
-                warnings.append("Item quantity seems unusually large")
-            
-            # Check if item is too small
-            volume = length * width * height
-            if volume < 1:  # 1 cm³
-                warnings.append("Item volume is very small, may cause precision issues")
+        # Dimension limits
+        if 'length' in item and item['length'] > 20000:
+            errors.append(f"{prefix}Length exceeds maximum (20,000 mm)")
+        if 'width' in item and item['width'] > 10000:
+            errors.append(f"{prefix}Width exceeds maximum (10,000 mm)")
+        if 'height' in item and item['height'] > 10000:
+            errors.append(f"{prefix}Height exceeds maximum (10,000 mm)")
         
-        metrics = {
-            'item_volume': length * width * height if not issues else 0,
-            'total_volume': (length * width * height * quantity) if not issues else 0,
-            'total_weight': (weight * quantity) if not issues else 0,
-            'has_required_fields': len(issues) == 0
-        }
+        # Weight limits
+        if 'weight' in item:
+            if item['weight'] > 50000:
+                errors.append(f"{prefix}Weight exceeds maximum (50,000 kg)")
         
-        return ValidationResult(
-            is_valid=len(issues) == 0,
-            issues=issues,
-            warnings=warnings,
-            metrics=metrics
-        )
+        # Quantity validation
+        if 'quantity' in item:
+            if not isinstance(item['quantity'], int) or item['quantity'] < 1:
+                errors.append(f"{prefix}Quantity must be a positive integer")
+            if item['quantity'] > 10000:
+                errors.append(f"{prefix}Quantity exceeds maximum (10,000)")
+        
+        # Item type validation
+        if 'item_type' in item:
+            if item['item_type'] not in Config.ITEM_TYPES:
+                errors.append(f"{prefix}Invalid item_type. Must be one of: {', '.join(Config.ITEM_TYPES)}")
+        
+        # Storage condition validation
+        if 'storage_condition' in item:
+            if item['storage_condition'] not in Config.STORAGE_CONDITIONS:
+                errors.append(f"{prefix}Invalid storage_condition. Must be one of: {', '.join(Config.STORAGE_CONDITIONS)}")
+        
+        # Hazard class validation
+        if 'hazard_class' in item and item['hazard_class']:
+            if item['hazard_class'] not in Config.HAZARD_CLASSES:
+                errors.append(f"{prefix}Invalid hazard_class. Must be one of: {', '.join(Config.HAZARD_CLASSES)}")
+        
+        # Temperature validation
+        if 'temperature_min' in item and 'temperature_max' in item:
+            if item['temperature_min'] >= item['temperature_max']:
+                errors.append(f"{prefix}temperature_min must be less than temperature_max")
+        
+        # Boolean field validation
+        boolean_fields = ['fragile', 'stackable', 'rotation_allowed', 'keep_upright']
+        for field in boolean_fields:
+            if field in item and not isinstance(item[field], bool):
+                errors.append(f"{prefix}Field '{field}' must be a boolean")
+        
+        # Max stack weight validation
+        if 'max_stack_weight' in item:
+            if not isinstance(item['max_stack_weight'], (int, float)) or item['max_stack_weight'] < 0:
+                errors.append(f"{prefix}max_stack_weight must be a non-negative number")
+        
+        # Priority validation
+        if 'priority' in item:
+            if not isinstance(item['priority'], int) or not (1 <= item['priority'] <= 10):
+                errors.append(f"{prefix}priority must be an integer between 1 and 10")
+        
+        # Logical validations
+        if item.get('keep_upright') and not item.get('rotation_allowed', True):
+            # This is actually consistent, but log as warning
+            pass
+        
+        if item.get('fragile') and item.get('stackable', True):
+            if item.get('max_stack_weight', float('inf')) > 100:
+                errors.append(f"{prefix}Fragile items should have lower max_stack_weight")
+        
+        return len(errors) == 0, errors
     
-    def validate_placement(self, container_data: Dict[str, Any], 
-                          placements: List[Dict[str, Any]]) -> ValidationResult:
-        """Validate item placements in container"""
-        issues = []
-        warnings = []
+    @staticmethod
+    def validate_items_list(items: List[Dict]) -> Tuple[bool, List[str]]:
+        """
+        Validate a list of items.
         
-        if not placements:
-            warnings.append("No placements to validate")
-            return ValidationResult(
-                is_valid=True,
-                issues=issues,
-                warnings=warnings,
-                metrics={'total_placements': 0}
+        Args:
+            items: List of item dictionaries
+            
+        Returns:
+            Tuple of (is_valid, list of errors)
+        """
+        if not items:
+            return False, ["Items list cannot be empty"]
+        
+        if len(items) > 1000:
+            return False, ["Too many items (maximum 1,000)"]
+        
+        all_errors = []
+        for idx, item in enumerate(items):
+            is_valid, errors = ItemValidator.validate(item, idx)
+            all_errors.extend(errors)
+        
+        return len(all_errors) == 0, all_errors
+
+
+class ConstraintValidator:
+    """Validates optimization constraints and feasibility."""
+    
+    @staticmethod
+    def validate_feasibility(container: Dict, items: List[Dict]) -> Tuple[bool, List[str]]:
+        """
+        Validate if optimization is feasible.
+        
+        Args:
+            container: Container dictionary
+            items: List of items
+            
+        Returns:
+            Tuple of (is_feasible, list of issues)
+        """
+        issues = []
+        
+        # Calculate total volume
+        container_volume = container['length'] * container['width'] * container['height']
+        total_item_volume = sum(
+            item['length'] * item['width'] * item['height'] * item.get('quantity', 1)
+            for item in items
+        )
+        
+        if total_item_volume > container_volume:
+            utilization = (total_item_volume / container_volume) * 100
+            issues.append(
+                f"Total item volume exceeds container capacity by {utilization - 100:.1f}% "
+                f"({total_item_volume:,} mm³ vs {container_volume:,} mm³)"
             )
         
-        container_box = BoundingBox(
-            Vector3D(0, 0, 0),
-            Vector3D(container_data['length'], container_data['width'], container_data['height'])
-        )
+        # Calculate total weight
+        total_weight = sum(item['weight'] * item.get('quantity', 1) for item in items)
+        max_weight = container.get('max_weight', float('inf'))
         
-        total_volume_used = 0
-        placement_boxes = []
+        if total_weight > max_weight:
+            excess = total_weight - max_weight
+            issues.append(
+                f"Total weight exceeds container capacity by {excess:.2f} kg "
+                f"({total_weight:.2f} kg vs {max_weight:.2f} kg)"
+            )
         
-        for i, placement in enumerate(placements):
-            # Check required fields
-            required_placement_fields = ['item_id', 'position', 'dimensions']
-            for field in required_placement_fields:
-                if field not in placement:
-                    issues.append(f"Placement {i} missing required field: {field}")
+        # Check if any single item is too large
+        container_dims = [container['length'], container['width'], container['height']]
+        container_dims_sorted = sorted(container_dims)
+        
+        for idx, item in enumerate(items):
+            item_dims = sorted([item['length'], item['width'], item['height']])
             
-            if 'position' in placement and 'dimensions' in placement:
-                position = placement['position']
-                dimensions = placement['dimensions']
-                
-                # Create bounding box for placement
-                placement_box = MathUtils.get_bounding_box_from_placement(position, dimensions)
-                placement_boxes.append(placement_box)
-                
-                # Check if placement is within container
-                if not MathUtils.is_inside_container(placement_box, container_box):
-                    issues.append(f"Item {placement.get('item_id', 'unknown')} is outside container bounds")
-                
-                # Check for valid dimensions
-                if any(dim <= 0 for dim in dimensions):
-                    issues.append(f"Item {placement.get('item_id', 'unknown')} has invalid dimensions")
-                
-                total_volume_used += dimensions[0] * dimensions[1] * dimensions[2]
-        
-        # Check for overlaps between items
-        for i in range(len(placement_boxes)):
-            for j in range(i + 1, len(placement_boxes)):
-                if MathUtils.check_overlap(placement_boxes[i], placement_boxes[j]):
-                    overlap_volume = MathUtils.calculate_overlap_volume(placement_boxes[i], placement_boxes[j])
-                    issues.append(f"Items overlap: placement {i} and {j} overlap by {overlap_volume:.2f} volume units")
-        
-        # Check container utilization
-        container_volume = container_data['length'] * container_data['width'] * container_data['height']
-        utilization = total_volume_used / container_volume if container_volume > 0 else 0
-        
-        if utilization > 1.0:
-            issues.append("Total placed volume exceeds container volume")
-        elif utilization > 0.95:
-            warnings.append("Container utilization is very high (>95%)")
-        elif utilization < 0.3:
-            warnings.append("Container utilization is low (<30%)")
-        
-        metrics = {
-            'total_placements': len(placements),
-            'total_volume_used': total_volume_used,
-            'container_volume': container_volume,
-            'utilization_rate': utilization,
-            'overlap_count': len([1 for i in range(len(placement_boxes)) for j in range(i+1, len(placement_boxes)) 
-                               if MathUtils.check_overlap(placement_boxes[i], placement_boxes[j])])
-        }
-        
-        return ValidationResult(
-            is_valid=len(issues) == 0,
-            issues=issues,
-            warnings=warnings,
-            metrics=metrics
-        )
-    
-    def validate_stowage_plan(self, stowage_plan: Dict[str, Any]) -> ValidationResult:
-        """Validate complete stowage plan"""
-        issues = []
-        warnings = []
-        
-        required_plan_fields = ['containers', 'unassigned_items', 'total_utilization']
-        for field in required_plan_fields:
-            if field not in stowage_plan:
-                issues.append(f"Stowage plan missing required field: {field}")
-        
-        if not issues:
-            containers = stowage_plan.get('containers', [])
-            unassigned_items = stowage_plan.get('unassigned_items', [])
-            
-            # Validate each container assignment
-            for i, container_assignment in enumerate(containers):
-                container_validation = self.validate_container_data(container_assignment.get('container_data', {}))
-                issues.extend([f"Container {i}: {issue}" for issue in container_validation.issues])
-                warnings.extend([f"Container {i}: {warning}" for warning in container_validation.warnings])
-                
-                # Validate placements in container
-                placements = container_assignment.get('placements', [])
-                placement_validation = self.validate_placement(
-                    container_assignment.get('container_data', {}),
-                    placements
+            if (item_dims[0] > container_dims_sorted[0] or
+                item_dims[1] > container_dims_sorted[1] or
+                item_dims[2] > container_dims_sorted[2]):
+                issues.append(
+                    f"Item {idx + 1} ({item.get('item_id', 'unknown')}) is too large "
+                    f"for container in at least one dimension "
+                    f"({item['length']}x{item['width']}x{item['height']} mm)"
                 )
-                issues.extend([f"Container {i}: {issue}" for issue in placement_validation.issues])
-                warnings.extend([f"Container {i}: {warning}" for warning in placement_validation.warnings])
-            
-            # Check overall plan metrics
-            total_utilization = stowage_plan.get('total_utilization', 0)
-            if total_utilization > 1.0:
-                issues.append("Total utilization exceeds 100%")
-            elif total_utilization < 0.1:
-                warnings.append("Overall utilization is very low (<10%)")
-            
-            if unassigned_items:
-                warnings.append(f"{len(unassigned_items)} items could not be assigned to containers")
         
-        metrics = {
-            'container_count': len(containers) if not issues else 0,
-            'unassigned_items_count': len(unassigned_items) if not issues else 0,
-            'total_utilization': stowage_plan.get('total_utilization', 0) if not issues else 0,
-            'is_complete_plan': len(issues) == 0
-        }
+        # Check hazmat compatibility
+        hazmat_items = [item for item in items if item.get('hazard_class')]
+        if len(hazmat_items) > 1:
+            incompatible = ConstraintValidator._check_hazmat_compatibility(hazmat_items)
+            if incompatible:
+                issues.append(f"Incompatible hazardous materials detected: {incompatible}")
         
-        return ValidationResult(
-            is_valid=len(issues) == 0,
-            issues=issues,
-            warnings=warnings,
-            metrics=metrics
-        )
+        return len(issues) == 0, issues
     
-    def get_validation_summary(self, validation_results: List[ValidationResult]) -> Dict[str, Any]:
-        """Get summary of multiple validation results"""
-        total_valid = sum(1 for result in validation_results if result.is_valid)
-        total_issues = sum(len(result.issues) for result in validation_results)
-        total_warnings = sum(len(result.warnings) for result in validation_results)
+    @staticmethod
+    def _check_hazmat_compatibility(hazmat_items: List[Dict]) -> Optional[str]:
+        """Check if hazardous materials are compatible."""
+        from backend.algorithms.stowage import StowageRules
         
-        return {
-            'total_checks': len(validation_results),
-            'passed_checks': total_valid,
-            'failed_checks': len(validation_results) - total_valid,
-            'total_issues': total_issues,
-            'total_warnings': total_warnings,
-            'success_rate': total_valid / len(validation_results) if validation_results else 0
+        prohibited_pairs = []
+        
+        for i, item1 in enumerate(hazmat_items):
+            class1 = item1.get('hazard_class')
+            for item2 in hazmat_items[i+1:]:
+                class2 = item2.get('hazard_class')
+                
+                segregation = StowageRules.get_segregation_requirement(class1, class2)
+                if segregation == 'prohibited':
+                    prohibited_pairs.append(f"{class1} and {class2}")
+        
+        if prohibited_pairs:
+            return ", ".join(prohibited_pairs)
+        return None
+    
+    @staticmethod
+    def validate_optimization_parameters(params: Dict) -> Tuple[bool, List[str]]:
+        """
+        Validate optimization parameters.
+        
+        Args:
+            params: Parameters dictionary
+            
+        Returns:
+            Tuple of (is_valid, list of errors)
+        """
+        errors = []
+        
+        if 'algorithm' in params:
+            valid_algorithms = ['genetic', 'constraint', 'hybrid', 'auto']
+            if params['algorithm'] not in valid_algorithms:
+                errors.append(f"Invalid algorithm. Must be one of: {', '.join(valid_algorithms)}")
+        
+        if 'population_size' in params:
+            if not isinstance(params['population_size'], int) or not (10 <= params['population_size'] <= 500):
+                errors.append("population_size must be an integer between 10 and 500")
+        
+        if 'generations' in params:
+            if not isinstance(params['generations'], int) or not (5 <= params['generations'] <= 500):
+                errors.append("generations must be an integer between 5 and 500")
+        
+        if 'time_limit' in params:
+            if not isinstance(params['time_limit'], int) or not (10 <= params['time_limit'] <= 600):
+                errors.append("time_limit must be an integer between 10 and 600 seconds")
+        
+        if 'mutation_rate' in params:
+            if not isinstance(params['mutation_rate'], (int, float)) or not (0 <= params['mutation_rate'] <= 1):
+                errors.append("mutation_rate must be a number between 0 and 1")
+        
+        if 'crossover_rate' in params:
+            if not isinstance(params['crossover_rate'], (int, float)) or not (0 <= params['crossover_rate'] <= 1):
+                errors.append("crossover_rate must be a number between 0 and 1")
+        
+        return len(errors) == 0, errors
+
+
+class ValidationService:
+    """
+    Main validation service coordinating all validation operations.
+    """
+    
+    def __init__(self, config: Config = None):
+        """
+        Initialize validation service.
+        
+        Args:
+            config: Configuration object
+        """
+        self.config = config or Config()
+        self.container_validator = ContainerValidator()
+        self.item_validator = ItemValidator()
+        self.constraint_validator = ConstraintValidator()
+        
+        logger.info("ValidationService initialized")
+    
+    def validate_optimization_request(self, request: Dict) -> Tuple[bool, Dict[str, List[str]]]:
+        """
+        Validate complete optimization request.
+        
+        Args:
+            request: Optimization request dictionary
+            
+        Returns:
+            Tuple of (is_valid, dictionary of errors by category)
+        """
+        errors = {
+            'container': [],
+            'items': [],
+            'constraints': [],
+            'parameters': []
         }
+        
+        # Validate container
+        if 'container' not in request:
+            errors['container'].append("Missing container data")
+        else:
+            is_valid, container_errors = self.container_validator.validate(request['container'])
+            errors['container'].extend(container_errors)
+        
+        # Validate items
+        if 'items' not in request:
+            errors['items'].append("Missing items data")
+        else:
+            is_valid, items_errors = self.item_validator.validate_items_list(request['items'])
+            errors['items'].extend(items_errors)
+        
+        # Validate feasibility
+        if 'container' in request and 'items' in request and not errors['container'] and not errors['items']:
+            is_feasible, constraint_errors = self.constraint_validator.validate_feasibility(
+                request['container'],
+                request['items']
+            )
+            errors['constraints'].extend(constraint_errors)
+        
+        # Validate parameters
+        if 'parameters' in request:
+            is_valid, param_errors = self.constraint_validator.validate_optimization_parameters(
+                request['parameters']
+            )
+            errors['parameters'].extend(param_errors)
+        
+        # Remove empty error categories
+        errors = {k: v for k, v in errors.items() if v}
+        
+        is_valid = len(errors) == 0
+        
+        if is_valid:
+            logger.info("Validation passed")
+        else:
+            logger.warning(f"Validation failed with {sum(len(v) for v in errors.values())} errors")
+        
+        return is_valid, errors
+    
+    def validate_placement_result(
+        self,
+        placements: List,
+        container: Dict,
+        items: List[Dict]
+    ) -> Tuple[bool, List[str]]:
+        """
+        Validate optimization result placements.
+        
+        Args:
+            placements: List of placements
+            container: Container data
+            items: Items data
+            
+        Returns:
+            Tuple of (is_valid, list of violations)
+        """
+        violations = []
+        
+        # Check each placement
+        for i, placement in enumerate(placements):
+            # Check within container bounds
+            if hasattr(placement, 'x'):
+                if (placement.x < 0 or
+                    placement.y < 0 or
+                    placement.z < 0 or
+                    placement.x + placement.length > container['length'] or
+                    placement.y + placement.width > container['width'] or
+                    placement.z + placement.height > container['height']):
+                    violations.append(f"Placement {i} is outside container bounds")
+            
+            # Check for overlaps
+            for j, other in enumerate(placements[i+1:], i+1):
+                if self._check_overlap(placement, other):
+                    violations.append(f"Placement {i} overlaps with placement {j}")
+        
+        # Check total weight
+        total_weight = sum(
+            p.weight if hasattr(p, 'weight') else 0
+            for p in placements
+        )
+        if total_weight > container.get('max_weight', float('inf')):
+            violations.append(f"Total weight ({total_weight:.2f} kg) exceeds container capacity")
+        
+        return len(violations) == 0, violations
+    
+    @staticmethod
+    def _check_overlap(p1, p2) -> bool:
+        """Check if two placements overlap."""
+        if not (hasattr(p1, 'x') and hasattr(p2, 'x')):
+            return False
+        
+        return not (
+            p1.x + p1.length <= p2.x or p2.x + p2.length <= p1.x or
+            p1.y + p1.width <= p2.y or p2.y + p2.width <= p1.y or
+            p1.z + p1.height <= p2.z or p2.z + p2.height <= p1.z
+        )
