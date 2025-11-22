@@ -1,270 +1,477 @@
-// API Service for handling all backend communication
-class ApiService {
-    constructor() {
-        // FIXED: Changed from port 5000 to 8000 to match your running backend
-        this.baseUrl = 'http://localhost:8000/api/v1';
-        this.defaultHeaders = {
-            'Content-Type': 'application/json',
-        };
+/**
+ * API Service
+ * Handles all HTTP requests to the backend API
+ */
+
+import { API_BASE_URL, API_ENDPOINTS, HTTP_STATUS } from '../utils/constants.js';
+
+export class API {
+  constructor(baseURL = API_BASE_URL) {
+    this.baseURL = baseURL;
+    this.defaultHeaders = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+    
+    // Request queue for retry
+    this.failedRequests = [];
+    
+    // Request interceptors
+    this.requestInterceptors = [];
+    this.responseInterceptors = [];
+  }
+  
+  /**
+   * Make HTTP request
+   */
+  async request(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    
+    const config = {
+      method: options.method || 'GET',
+      headers: {
+        ...this.defaultHeaders,
+        ...options.headers
+      },
+      ...options
+    };
+    
+    // Add body if present
+    if (options.body && typeof options.body === 'object') {
+      config.body = JSON.stringify(options.body);
     }
-
-    async request(endpoint, options = {}) {
-        const url = `${this.baseUrl}${endpoint}`;
-        const config = {
-            headers: { ...this.defaultHeaders, ...options.headers },
-            ...options,
-        };
-
-        try {
-            console.log(`🌐 API Request: ${config.method || 'GET'} ${url}`);
-            const response = await fetch(url, config);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
-            }
-
-            const data = await response.json();
-            console.log('✅ API Response:', data);
-            return { success: true, data };
-        } catch (error) {
-            console.error('❌ API request failed:', error);
-            return { 
-                success: false, 
-                error: error.message,
-                status: error.status
-            };
-        }
+    
+    // Apply request interceptors
+    this.requestInterceptors.forEach(interceptor => {
+      interceptor(config);
+    });
+    
+    try {
+      const response = await fetch(url, config);
+      
+      // Apply response interceptors
+      this.responseInterceptors.forEach(interceptor => {
+        interceptor(response);
+      });
+      
+      // Handle errors
+      if (!response.ok) {
+        await this.handleError(response);
+      }
+      
+      // Parse response
+      const data = await this.parseResponse(response);
+      
+      return data;
+      
+    } catch (error) {
+      console.error('API request failed:', error);
+      
+      // Add to failed requests for retry
+      if (options.retry !== false) {
+        this.failedRequests.push({ endpoint, options });
+      }
+      
+      throw error;
     }
-
-    // Health and System endpoints
-    async getHealth() {
-        return await this.request('/health');
+  }
+  
+  /**
+   * Parse response based on content type
+   */
+  async parseResponse(response) {
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
     }
-
-    async getSystemStatus() {
-        return await this.request('/services/status');
+    
+    if (contentType && contentType.includes('text/')) {
+      return await response.text();
     }
-
-    async getAlgorithms() {
-        return await this.request('/algorithms');
+    
+    if (contentType && contentType.includes('application/octet-stream')) {
+      return await response.blob();
     }
-
-    async getContainerTypes() {
-        return await this.request('/containers/types');
+    
+    return response;
+  }
+  
+  /**
+   * Handle API errors
+   */
+  async handleError(response) {
+    let errorMessage = 'An error occurred';
+    
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch (e) {
+      errorMessage = response.statusText || errorMessage;
     }
-
-    // Optimization endpoints
-    async optimizeAuto(requestData) {
-        return await this.request('/optimize/auto', {
-            method: 'POST',
-            body: JSON.stringify(requestData)
-        });
+    
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    error.response = response;
+    
+    throw error;
+  }
+  
+  /**
+   * GET request
+   */
+  async get(endpoint, params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const url = queryString ? `${endpoint}?${queryString}` : endpoint;
+    
+    return this.request(url, { method: 'GET' });
+  }
+  
+  /**
+   * POST request
+   */
+  async post(endpoint, body = {}) {
+    return this.request(endpoint, {
+      method: 'POST',
+      body
+    });
+  }
+  
+  /**
+   * PUT request
+   */
+  async put(endpoint, body = {}) {
+    return this.request(endpoint, {
+      method: 'PUT',
+      body
+    });
+  }
+  
+  /**
+   * DELETE request
+   */
+  async delete(endpoint) {
+    return this.request(endpoint, {
+      method: 'DELETE'
+    });
+  }
+  
+  /**
+   * Upload file
+   */
+  async uploadFile(endpoint, file, additionalData = {}) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Add additional data
+    Object.keys(additionalData).forEach(key => {
+      formData.append(key, additionalData[key]);
+    });
+    
+    return this.request(endpoint, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        // Don't set Content-Type, let browser set it with boundary
+      }
+    });
+  }
+  
+  /**
+   * Download file
+   */
+  async downloadFile(endpoint, filename) {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      headers: this.defaultHeaders
+    });
+    
+    if (!response.ok) {
+      throw new Error('Download failed');
     }
-
-    async optimizePacking(requestData) {
-        return await this.request('/optimize/packing', {
-            method: 'POST',
-            body: JSON.stringify(requestData)
-        });
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }
+  
+  // ============================================================================
+  // API Endpoints
+  // ============================================================================
+  
+  /**
+   * Check API health
+   */
+  async checkHealth() {
+    return this.get(API_ENDPOINTS.HEALTH);
+  }
+  
+  /**
+   * Get API info
+   */
+  async getInfo() {
+    return this.get(API_ENDPOINTS.INFO);
+  }
+  
+  /**
+   * Get configuration
+   */
+  async getConfig() {
+    return this.get(API_ENDPOINTS.CONFIG);
+  }
+  
+  /**
+   * Submit optimization request
+   */
+  async optimize(data) {
+    return this.post(API_ENDPOINTS.OPTIMIZE, data);
+  }
+  
+  /**
+   * Get optimization status
+   */
+  async getOptimizationStatus(optimizationId) {
+    return this.get(`${API_ENDPOINTS.OPTIMIZE}/${optimizationId}/status`);
+  }
+  
+  /**
+   * Get optimization result
+   */
+  async getOptimizationResult(optimizationId) {
+    return this.get(`${API_ENDPOINTS.OPTIMIZE}/${optimizationId}`);
+  }
+  
+  /**
+   * Cancel optimization
+   */
+  async cancelOptimization(optimizationId) {
+    return this.post(`${API_ENDPOINTS.OPTIMIZE}/${optimizationId}/cancel`);
+  }
+  
+  /**
+   * Delete optimization
+   */
+  async deleteOptimization(optimizationId) {
+    return this.delete(`${API_ENDPOINTS.OPTIMIZE}/${optimizationId}`);
+  }
+  
+  /**
+   * Get optimization history
+   */
+  async getOptimizationHistory(params = {}) {
+    return this.get(API_ENDPOINTS.HISTORY, params);
+  }
+  
+  /**
+   * Export optimization result
+   */
+  async exportResult(optimizationId, format = 'pdf') {
+    const response = await fetch(
+      `${this.baseURL}${API_ENDPOINTS.EXPORTS}/${optimizationId}?format=${format}`,
+      { headers: this.defaultHeaders }
+    );
+    
+    if (!response.ok) {
+      throw new Error('Export failed');
     }
-
-    async optimizeGenetic(requestData) {
-        return await this.request('/optimize/genetic', {
-            method: 'POST',
-            body: JSON.stringify(requestData)
-        });
+    
+    return await response.blob();
+  }
+  
+  /**
+   * Validate optimization data
+   */
+  async validateOptimization(data) {
+    return this.post(API_ENDPOINTS.VALIDATE, data);
+  }
+  
+  /**
+   * Get containers
+   */
+  async getContainers(params = {}) {
+    return this.get(API_ENDPOINTS.CONTAINERS, params);
+  }
+  
+  /**
+   * Get container by ID
+   */
+  async getContainer(containerId) {
+    return this.get(`${API_ENDPOINTS.CONTAINERS}/${containerId}`);
+  }
+  
+  /**
+   * Create container
+   */
+  async createContainer(data) {
+    return this.post(API_ENDPOINTS.CONTAINERS, data);
+  }
+  
+  /**
+   * Update container
+   */
+  async updateContainer(containerId, data) {
+    return this.put(`${API_ENDPOINTS.CONTAINERS}/${containerId}`, data);
+  }
+  
+  /**
+   * Delete container
+   */
+  async deleteContainer(containerId) {
+    return this.delete(`${API_ENDPOINTS.CONTAINERS}/${containerId}`);
+  }
+  
+  /**
+   * Get items
+   */
+  async getItems(params = {}) {
+    return this.get(API_ENDPOINTS.ITEMS, params);
+  }
+  
+  /**
+   * Get item by ID
+   */
+  async getItem(itemId) {
+    return this.get(`${API_ENDPOINTS.ITEMS}/${itemId}`);
+  }
+  
+  /**
+   * Create item
+   */
+  async createItem(data) {
+    return this.post(API_ENDPOINTS.ITEMS, data);
+  }
+  
+  /**
+   * Update item
+   */
+  async updateItem(itemId, data) {
+    return this.put(`${API_ENDPOINTS.ITEMS}/${itemId}`, data);
+  }
+  
+  /**
+   * Delete item
+   */
+  async deleteItem(itemId) {
+    return this.delete(`${API_ENDPOINTS.ITEMS}/${itemId}`);
+  }
+  
+  /**
+   * Bulk create items
+   */
+  async bulkCreateItems(items) {
+    return this.post(`${API_ENDPOINTS.ITEMS}/bulk`, { items });
+  }
+  
+  /**
+   * Import items from CSV
+   */
+  async importItemsCSV(file) {
+    return this.uploadFile(`${API_ENDPOINTS.ITEMS}/import`, file);
+  }
+  
+  /**
+   * Get statistics
+   */
+  async getStatistics() {
+    return this.get(API_ENDPOINTS.STATS);
+  }
+  
+  /**
+   * Calculate emissions
+   */
+  async calculateEmissions(data) {
+    return this.post(`${API_ENDPOINTS.OPTIMIZE}/emissions`, data);
+  }
+  
+  /**
+   * Get stowage plan
+   */
+  async getStowagePlan(planId) {
+    return this.get(`${API_ENDPOINTS.STOWAGE}/${planId}`);
+  }
+  
+  /**
+   * Create stowage plan
+   */
+  async createStowagePlan(data) {
+    return this.post(API_ENDPOINTS.STOWAGE, data);
+  }
+  
+  /**
+   * Validate stowage plan
+   */
+  async validateStowagePlan(data) {
+    return this.post(`${API_ENDPOINTS.STOWAGE}/validate`, data);
+  }
+  
+  // ============================================================================
+  // Utility Methods
+  // ============================================================================
+  
+  /**
+   * Add request interceptor
+   */
+  addRequestInterceptor(interceptor) {
+    this.requestInterceptors.push(interceptor);
+  }
+  
+  /**
+   * Add response interceptor
+   */
+  addResponseInterceptor(interceptor) {
+    this.responseInterceptors.push(interceptor);
+  }
+  
+  /**
+   * Set authentication token
+   */
+  setAuthToken(token) {
+    this.defaultHeaders['Authorization'] = `Bearer ${token}`;
+  }
+  
+  /**
+   * Remove authentication token
+   */
+  removeAuthToken() {
+    delete this.defaultHeaders['Authorization'];
+  }
+  
+  /**
+   * Retry failed requests
+   */
+  async retryFailedRequests() {
+    const requests = [...this.failedRequests];
+    this.failedRequests = [];
+    
+    const results = [];
+    
+    for (const { endpoint, options } of requests) {
+      try {
+        const result = await this.request(endpoint, { ...options, retry: false });
+        results.push({ success: true, result });
+      } catch (error) {
+        results.push({ success: false, error });
+      }
     }
-
-    async optimizeStowage(requestData) {
-        return await this.request('/optimize/stowage', {
-            method: 'POST',
-            body: JSON.stringify(requestData)
-        });
-    }
-
-    async compareAlgorithms(requestData) {
-        return await this.request('/optimize/compare', {
-            method: 'POST',
-            body: JSON.stringify(requestData)
-        });
-    }
-
-    async batchOptimize(requestData) {
-        return await this.request('/optimize/batch', {
-            method: 'POST',
-            body: JSON.stringify(requestData)
-        });
-    }
-
-    async getBatchStatus(batchId) {
-        return await this.request(`/optimize/batch/${batchId}/status`);
-    }
-
-    // Validation endpoints
-    async validateData(container, items) {
-        return await this.request('/validate/data', {
-            method: 'POST',
-            body: JSON.stringify({ container, items })
-        });
-    }
-
-    async validatePlacement(requestData) {
-        return await this.request('/validate/placement', {
-            method: 'POST',
-            body: JSON.stringify(requestData)
-        });
-    }
-
-    // History endpoints
-    async getOptimizationHistory(limit = 10, algorithm = null, minUtilization = null, maxUtilization = null) {
-        let url = `/optimize/history?limit=${limit}`;
-        
-        if (algorithm) url += `&algorithm=${algorithm}`;
-        if (minUtilization !== null) url += `&min_utilization=${minUtilization}`;
-        if (maxUtilization !== null) url += `&max_utilization=${maxUtilization}`;
-        
-        return await this.request(url);
-    }
-
-    // Export endpoints
-    async exportResult(result, format = 'excel') {
-        return await this.request('/export/result', {
-            method: 'POST',
-            body: JSON.stringify({ result, format })
-        });
-    }
-
-    async downloadExport(exportId) {
-        const response = await fetch(`${this.baseUrl}/export/download/${exportId}`);
-        
-        if (!response.ok) {
-            throw new Error('Download failed');
-        }
-
-        const blob = await response.blob();
-        return blob;
-    }
-
-    // Utility methods for API response handling
-    handleApiResponse(response, successMessage = null, errorMessage = null) {
-        if (response.success) {
-            if (successMessage) {
-                this.showNotification(successMessage, 'success');
-            }
-            return response.data;
-        } else {
-            const message = errorMessage || response.error || 'Operation failed';
-            this.showNotification(message, 'error');
-            throw new Error(message);
-        }
-    }
-
-    // File upload handling (for future use)
-    async uploadFile(file, endpoint) {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-            const response = await fetch(`${this.baseUrl}${endpoint}`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.statusText}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('File upload failed:', error);
-            throw error;
-        }
-    }
-
-    // Real-time updates via WebSocket (for future use)
-    connectWebSocket() {
-        const wsUrl = this.baseUrl.replace('http', 'ws') + '/ws';
-        this.ws = new WebSocket(wsUrl);
-
-        this.ws.onopen = () => {
-            console.log('WebSocket connected');
-        };
-
-        this.ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            this.handleWebSocketMessage(data);
-        };
-
-        this.ws.onclose = () => {
-            console.log('WebSocket disconnected');
-            // Attempt to reconnect after 5 seconds
-            setTimeout(() => this.connectWebSocket(), 5000);
-        };
-
-        this.ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-        };
-    }
-
-    handleWebSocketMessage(data) {
-        // Handle real-time updates from the server
-        switch (data.type) {
-            case 'optimization_progress':
-                this.handleOptimizationProgress(data);
-                break;
-            case 'system_status':
-                this.handleSystemStatusUpdate(data);
-                break;
-            case 'batch_update':
-                this.handleBatchUpdate(data);
-                break;
-            default:
-                console.log('Unknown WebSocket message type:', data.type);
-        }
-    }
-
-    handleOptimizationProgress(data) {
-        // Update UI with optimization progress
-        const progressEvent = new CustomEvent('optimizationProgress', {
-            detail: data
-        });
-        window.dispatchEvent(progressEvent);
-    }
-
-    handleSystemStatusUpdate(data) {
-        // Update system status in UI
-        const statusEvent = new CustomEvent('systemStatusUpdate', {
-            detail: data
-        });
-        window.dispatchEvent(statusEvent);
-    }
-
-    handleBatchUpdate(data) {
-        // Update batch processing status
-        const batchEvent = new CustomEvent('batchUpdate', {
-            detail: data
-        });
-        window.dispatchEvent(batchEvent);
-    }
-
-    // Method to show notifications (integrated with the app's notification system)
-    showNotification(message, type = 'info') {
-        // This will be connected to the main app's notification system
-        if (window.app && window.app.showNotification) {
-            window.app.showNotification(message, type);
-        } else {
-            console.log(`[${type.toUpperCase()}] ${message}`);
-        }
-    }
+    
+    return results;
+  }
+  
+  /**
+   * Clear failed requests
+   */
+  clearFailedRequests() {
+    this.failedRequests = [];
+  }
 }
 
-// Create a singleton instance
-const apiService = new ApiService();
+// Create singleton instance
+export const api = new API();
 
-// Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = apiService;
-} else {
-    window.apiService = apiService;
-}
+// Export default
+export default API;

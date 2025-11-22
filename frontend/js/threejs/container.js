@@ -1,337 +1,535 @@
+/**
+ * Container 3D Visualization
+ * Renders shipping containers and cargo items in 3D
+ */
+
 import * as THREE from 'three';
 
-export class ContainerManager {
-    constructor(scene) {
-        this.scene = scene;
-        this.containers = new Map(); // containerId -> THREE.Group
-        this.containerMeshes = new Map(); // containerId -> THREE.Mesh
-        this.animations = new Map(); // containerId -> animation data
-        this.isAnimating = false;
-        this.animationSpeed = 2.0;
-        
-        this.materials = this.createMaterials();
+export class Container3D {
+  constructor(containerData, options = {}) {
+    this.containerData = containerData;
+    this.options = {
+      showWireframe: options.showWireframe || true,
+      wireframeColor: options.wireframeColor || 0x000000,
+      containerColor: options.containerColor || 0x3b82f6,
+      containerOpacity: options.containerOpacity || 0.1,
+      wallThickness: options.wallThickness || 50,
+      showFloor: options.showFloor !== false,
+      showDimensions: options.showDimensions || false,
+      ...options
+    };
+    
+    // Three.js objects
+    this.group = new THREE.Group();
+    this.containerMesh = null;
+    this.wireframe = null;
+    this.floor = null;
+    this.walls = [];
+    this.dimensionLabels = [];
+    
+    // Items in container
+    this.items = [];
+    this.itemMeshes = new Map();
+    
+    this.init();
+  }
+  
+  /**
+   * Initialize container
+   */
+  init() {
+    this.createContainer();
+    
+    if (this.options.showFloor) {
+      this.createFloor();
     }
-
-    createMaterials() {
-        return {
-            standard: new THREE.MeshStandardMaterial({ 
-                color: 0x4682B4,
-                metalness: 0.3,
-                roughness: 0.7
-            }),
-            selected: new THREE.MeshStandardMaterial({
-                color: 0xFFD700,
-                metalness: 0.5,
-                roughness: 0.3,
-                emissive: 0x333300
-            }),
-            highlighted: new THREE.MeshStandardMaterial({
-                color: 0x90EE90,
-                metalness: 0.3,
-                roughness: 0.6,
-                emissive: 0x003300
-            }),
-            hazardous: new THREE.MeshStandardMaterial({
-                color: 0xFF4500,
-                metalness: 0.2,
-                roughness: 0.8,
-                emissive: 0x330000
-            }),
-            refrigerated: new THREE.MeshStandardMaterial({
-                color: 0x87CEEB,
-                metalness: 0.4,
-                roughness: 0.5
-            })
-        };
+    
+    if (this.options.showDimensions) {
+      this.createDimensionLabels();
     }
-
-    createContainer(containerData) {
-        const { id, name, length, width, height, weight, type, hazardClass } = containerData;
-        
-        const containerGroup = new THREE.Group();
-        containerGroup.userData = {
-            isContainer: true,
-            containerId: id,
-            name: name,
-            dimensions: { length, width, height },
-            weight: weight,
-            type: type,
-            hazardClass: hazardClass,
-            originalPosition: new THREE.Vector3()
-        };
-
-        // Choose material based on container properties
-        let material = this.materials.standard;
-        if (hazardClass) {
-            material = this.materials.hazardous;
-        } else if (type === 'refrigerated') {
-            material = this.materials.refrigerated;
-        }
-
-        // Create container geometry
-        const geometry = new THREE.BoxGeometry(length, height, width);
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-
-        // Add wireframe for better visibility
-        const wireframe = new THREE.WireframeGeometry(geometry);
-        const line = new THREE.LineSegments(wireframe);
-        line.material.color.set(0x000000);
-        line.material.transparent = true;
-        line.material.opacity = 0.3;
-
-        containerGroup.add(mesh);
-        containerGroup.add(line);
-
-        // Add label
-        this.addLabel(containerGroup, name, weight, height);
-
-        this.containers.set(id, containerGroup);
-        this.containerMeshes.set(id, mesh);
-        this.scene.add(containerGroup);
-
-        return containerGroup;
+  }
+  
+  /**
+   * Create container structure
+   */
+  createContainer() {
+    const { length, width, height } = this.containerData;
+    
+    // Create container box geometry
+    const geometry = new THREE.BoxGeometry(length, height, width);
+    
+    // Container material (semi-transparent)
+    const material = new THREE.MeshPhongMaterial({
+      color: this.options.containerColor,
+      transparent: true,
+      opacity: this.options.containerOpacity,
+      side: THREE.BackSide,
+      depthWrite: false
+    });
+    
+    this.containerMesh = new THREE.Mesh(geometry, material);
+    this.containerMesh.position.set(length / 2, height / 2, width / 2);
+    this.containerMesh.name = 'container_body';
+    this.group.add(this.containerMesh);
+    
+    // Create wireframe
+    if (this.options.showWireframe) {
+      this.createWireframe();
     }
-
-    addLabel(containerGroup, name, weight, height) {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = 256;
-        canvas.height = 128;
-
-        // Draw label background
-        context.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw border
-        context.strokeStyle = '#333';
-        context.lineWidth = 2;
-        context.strokeRect(0, 0, canvas.width, canvas.height);
-
-        // Draw text
-        context.fillStyle = '#333';
-        context.font = 'bold 20px Arial';
-        context.textAlign = 'center';
-        context.fillText(name, canvas.width / 2, 30);
-        
-        context.font = '16px Arial';
-        context.fillText(`${weight}kg`, canvas.width / 2, 60);
-        
-        context.font = '14px Arial';
-        context.fillText('CargoOpt', canvas.width / 2, 90);
-
-        const texture = new THREE.CanvasTexture(canvas);
-        const labelMaterial = new THREE.SpriteMaterial({ 
-            map: texture,
-            transparent: true 
-        });
-        
-        const sprite = new THREE.Sprite(labelMaterial);
-        sprite.scale.set(3, 1.5, 1);
-        sprite.position.y = height / 2 + 1; // Position above container
-        containerGroup.add(sprite);
+    
+    // Create walls (optional - for better visualization)
+    this.createWalls();
+  }
+  
+  /**
+   * Create wireframe edges
+   */
+  createWireframe() {
+    const { length, width, height } = this.containerData;
+    
+    const geometry = new THREE.BoxGeometry(length, height, width);
+    const edges = new THREE.EdgesGeometry(geometry);
+    const material = new THREE.LineBasicMaterial({
+      color: this.options.wireframeColor,
+      linewidth: 2
+    });
+    
+    this.wireframe = new THREE.LineSegments(edges, material);
+    this.wireframe.position.set(length / 2, height / 2, width / 2);
+    this.wireframe.name = 'container_wireframe';
+    this.group.add(this.wireframe);
+  }
+  
+  /**
+   * Create container walls
+   */
+  createWalls() {
+    const { length, width, height } = this.containerData;
+    const thickness = this.options.wallThickness;
+    
+    const wallMaterial = new THREE.MeshPhongMaterial({
+      color: 0x808080,
+      transparent: true,
+      opacity: 0.2,
+      side: THREE.DoubleSide
+    });
+    
+    // Back wall
+    const backWall = new THREE.Mesh(
+      new THREE.PlaneGeometry(length, height),
+      wallMaterial
+    );
+    backWall.position.set(length / 2, height / 2, 0);
+    backWall.name = 'wall_back';
+    this.walls.push(backWall);
+    this.group.add(backWall);
+    
+    // Left wall
+    const leftWall = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, height),
+      wallMaterial
+    );
+    leftWall.rotation.y = Math.PI / 2;
+    leftWall.position.set(0, height / 2, width / 2);
+    leftWall.name = 'wall_left';
+    this.walls.push(leftWall);
+    this.group.add(leftWall);
+    
+    // Right wall
+    const rightWall = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, height),
+      wallMaterial
+    );
+    rightWall.rotation.y = -Math.PI / 2;
+    rightWall.position.set(length, height / 2, width / 2);
+    rightWall.name = 'wall_right';
+    this.walls.push(rightWall);
+    this.group.add(rightWall);
+  }
+  
+  /**
+   * Create floor
+   */
+  createFloor() {
+    const { length, width } = this.containerData;
+    
+    const floorGeometry = new THREE.PlaneGeometry(length, width);
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      color: 0x8B4513,
+      roughness: 0.8,
+      metalness: 0.2
+    });
+    
+    this.floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    this.floor.rotation.x = -Math.PI / 2;
+    this.floor.position.set(length / 2, 0, width / 2);
+    this.floor.receiveShadow = true;
+    this.floor.name = 'container_floor';
+    this.group.add(this.floor);
+  }
+  
+  /**
+   * Create dimension labels
+   */
+  createDimensionLabels() {
+    // This would use THREE.TextGeometry or CSS2DRenderer for labels
+    // Simplified version - would need actual text rendering
+    console.log('Dimension labels would be shown here');
+  }
+  
+  /**
+   * Add item to container
+   */
+  addItem(itemData, placement) {
+    const itemMesh = this.createItemMesh(itemData, placement);
+    
+    if (itemMesh) {
+      this.items.push({ data: itemData, placement, mesh: itemMesh });
+      this.itemMeshes.set(placement.item_index || this.items.length - 1, itemMesh);
+      this.group.add(itemMesh);
     }
-
-    loadAssignments(assignments, containersData) {
-        // First create all containers
-        containersData.forEach(containerData => {
-            this.createContainer(containerData);
-        });
-
-        // Position containers based on assignments
-        let vehicleIndex = 0;
-        Object.entries(assignments).forEach(([vehicleId, containerIds]) => {
-            const vehicleContainers = containerIds.map(id => this.containers.get(id));
-            
-            // Simple grid layout for demonstration
-            // In a real implementation, this would use actual 3D bin packing
-            vehicleContainers.forEach((container, index) => {
-                if (container) {
-                    const row = Math.floor(index / 4);
-                    const col = index % 4;
-                    
-                    const x = vehicleIndex * 8 + col * 2.5;
-                    const z = row * 2.5;
-                    const y = container.userData.dimensions.height / 2;
-                    
-                    container.position.set(x, y, z);
-                    container.userData.originalPosition.copy(container.position);
-                    
-                    // Store vehicle assignment
-                    container.userData.assignedVehicle = vehicleId;
-                }
-            });
-            
-            vehicleIndex++;
-        });
+    
+    return itemMesh;
+  }
+  
+  /**
+   * Create item mesh
+   */
+  createItemMesh(itemData, placement) {
+    const geometry = new THREE.BoxGeometry(
+      placement.length,
+      placement.height,
+      placement.width
+    );
+    
+    // Get color from item data or generate random
+    const color = this.getItemColor(itemData);
+    
+    const material = new THREE.MeshPhongMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.8,
+      shininess: 30
+    });
+    
+    const mesh = new THREE.Mesh(geometry, material);
+    
+    // Position item (center of box)
+    mesh.position.set(
+      placement.position_x + placement.length / 2,
+      placement.position_z + placement.height / 2,
+      placement.position_y + placement.width / 2
+    );
+    
+    // Rotation if needed
+    if (placement.rotation) {
+      mesh.rotation.y = THREE.MathUtils.degToRad(placement.rotation);
     }
-
-    highlightContainer(containerId) {
-        this.removeAllHighlights();
-        
-        const mesh = this.containerMeshes.get(containerId);
-        if (mesh) {
-            mesh.material = this.materials.highlighted;
-        }
+    
+    // Add wireframe to item
+    const edges = new THREE.EdgesGeometry(geometry);
+    const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
+    const wireframe = new THREE.LineSegments(edges, edgeMaterial);
+    mesh.add(wireframe);
+    
+    // Shadow
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    
+    // User data
+    mesh.userData = {
+      itemData,
+      placement,
+      type: 'item'
+    };
+    
+    mesh.name = `item_${placement.item_index || this.items.length}`;
+    
+    return mesh;
+  }
+  
+  /**
+   * Get item color
+   */
+  getItemColor(itemData) {
+    // Use color from item data if available
+    if (itemData.color) {
+      return new THREE.Color(itemData.color);
     }
-
-    removeAllHighlights() {
-        this.containerMeshes.forEach((mesh, containerId) => {
-            if (mesh.material !== this.materials.selected) {
-                this.resetContainerMaterial(containerId);
-            }
-        });
+    
+    // Color by item type
+    const typeColors = {
+      glass: 0x87CEEB,
+      wood: 0x8B4513,
+      metal: 0x708090,
+      plastic: 0xFFB6C1,
+      electronics: 0x4169E1,
+      textiles: 0xDDA0DD,
+      food: 0xFFA500,
+      chemicals: 0xFF4500,
+      other: 0xA9A9A9
+    };
+    
+    const itemType = itemData.item_type || 'other';
+    return typeColors[itemType] || typeColors.other;
+  }
+  
+  /**
+   * Remove item
+   */
+  removeItem(itemIndex) {
+    const mesh = this.itemMeshes.get(itemIndex);
+    
+    if (mesh) {
+      this.group.remove(mesh);
+      this.disposeMesh(mesh);
+      this.itemMeshes.delete(itemIndex);
+      
+      // Remove from items array
+      this.items = this.items.filter((item, idx) => 
+        (item.placement.item_index || idx) !== itemIndex
+      );
     }
-
-    selectContainer(containerId) {
-        const container = this.containers.get(containerId);
-        if (container) {
-            const mesh = this.containerMeshes.get(containerId);
-            if (mesh) {
-                mesh.material = this.materials.selected;
-            }
-            
-            // Add selection animation
-            this.startSelectionAnimation(containerId);
-            
-            return container;
-        }
-        return null;
+  }
+  
+  /**
+   * Clear all items
+   */
+  clearItems() {
+    this.itemMeshes.forEach((mesh, index) => {
+      this.group.remove(mesh);
+      this.disposeMesh(mesh);
+    });
+    
+    this.items = [];
+    this.itemMeshes.clear();
+  }
+  
+  /**
+   * Add multiple items (optimized)
+   */
+  addItems(itemsData, placements) {
+    placements.forEach((placement, index) => {
+      const itemData = itemsData[placement.item_index] || {};
+      this.addItem(itemData, placement);
+    });
+  }
+  
+  /**
+   * Highlight item
+   */
+  highlightItem(itemIndex, highlight = true) {
+    const mesh = this.itemMeshes.get(itemIndex);
+    
+    if (mesh) {
+      if (highlight) {
+        mesh.material.emissive = new THREE.Color(0xffff00);
+        mesh.material.emissiveIntensity = 0.3;
+      } else {
+        mesh.material.emissive = new THREE.Color(0x000000);
+        mesh.material.emissiveIntensity = 0;
+      }
     }
-
-    deselectContainer(containerId) {
-        const mesh = this.containerMeshes.get(containerId);
-        if (mesh) {
-            this.resetContainerMaterial(containerId);
-        }
-        
-        // Stop selection animation
-        this.stopSelectionAnimation(containerId);
+  }
+  
+  /**
+   * Set item opacity
+   */
+  setItemOpacity(itemIndex, opacity) {
+    const mesh = this.itemMeshes.get(itemIndex);
+    
+    if (mesh) {
+      mesh.material.opacity = opacity;
     }
-
-    resetContainerMaterial(containerId) {
-        const mesh = this.containerMeshes.get(containerId);
-        const container = this.containers.get(containerId);
-        
-        if (mesh && container) {
-            if (container.userData.hazardClass) {
-                mesh.material = this.materials.hazardous;
-            } else if (container.userData.type === 'refrigerated') {
-                mesh.material = this.materials.refrigerated;
-            } else {
-                mesh.material = this.materials.standard;
-            }
-        }
+  }
+  
+  /**
+   * Toggle wireframe visibility
+   */
+  toggleWireframe(visible) {
+    if (this.wireframe) {
+      this.wireframe.visible = visible;
     }
-
-    startSelectionAnimation(containerId) {
-        const container = this.containers.get(containerId);
-        if (container) {
-            this.animations.set(containerId, {
-                startTime: performance.now(),
-                originalY: container.position.y
-            });
-        }
+  }
+  
+  /**
+   * Toggle walls visibility
+   */
+  toggleWalls(visible) {
+    this.walls.forEach(wall => {
+      wall.visible = visible;
+    });
+  }
+  
+  /**
+   * Toggle floor visibility
+   */
+  toggleFloor(visible) {
+    if (this.floor) {
+      this.floor.visible = visible;
     }
-
-    stopSelectionAnimation(containerId) {
-        const container = this.containers.get(containerId);
-        if (container) {
-            container.position.y = container.userData.originalPosition.y;
-            this.animations.delete(containerId);
-        }
+  }
+  
+  /**
+   * Set container opacity
+   */
+  setContainerOpacity(opacity) {
+    if (this.containerMesh) {
+      this.containerMesh.material.opacity = opacity;
     }
-
-    startLoadingAnimation(containerId, targetPosition, duration = 2000) {
-        const container = this.containers.get(containerId);
-        if (container) {
-            this.animations.set(containerId, {
-                type: 'loading',
-                startTime: performance.now(),
-                duration: duration,
-                startPosition: container.position.clone(),
-                targetPosition: targetPosition.clone()
-            });
-        }
+    
+    this.walls.forEach(wall => {
+      wall.material.opacity = opacity * 0.5;
+    });
+  }
+  
+  /**
+   * Get group (for adding to scene)
+   */
+  getGroup() {
+    return this.group;
+  }
+  
+  /**
+   * Get bounding box
+   */
+  getBoundingBox() {
+    const box = new THREE.Box3().setFromObject(this.group);
+    return box;
+  }
+  
+  /**
+   * Get center point
+   */
+  getCenter() {
+    const box = this.getBoundingBox();
+    return box.getCenter(new THREE.Vector3());
+  }
+  
+  /**
+   * Get item by index
+   */
+  getItem(itemIndex) {
+    return this.items.find((item, idx) => 
+      (item.placement.item_index || idx) === itemIndex
+    );
+  }
+  
+  /**
+   * Get all items
+   */
+  getItems() {
+    return this.items;
+  }
+  
+  /**
+   * Get utilization visualization
+   */
+  getUtilizationVisualization() {
+    const containerVolume = this.containerData.length * 
+                           this.containerData.width * 
+                           this.containerData.height;
+    
+    const usedVolume = this.items.reduce((sum, item) => {
+      return sum + (item.placement.length * 
+                   item.placement.width * 
+                   item.placement.height);
+    }, 0);
+    
+    const utilization = (usedVolume / containerVolume) * 100;
+    
+    return {
+      containerVolume,
+      usedVolume,
+      utilization,
+      itemCount: this.items.length
+    };
+  }
+  
+  /**
+   * Dispose mesh
+   */
+  disposeMesh(mesh) {
+    if (mesh.geometry) {
+      mesh.geometry.dispose();
     }
-
-    update() {
-        if (!this.isAnimating) return;
-
-        const currentTime = performance.now();
-        
-        this.animations.forEach((animation, containerId) => {
-            const container = this.containers.get(containerId);
-            if (!container) return;
-
-            if (animation.type === 'loading') {
-                this.updateLoadingAnimation(container, animation, currentTime);
-            } else {
-                this.updateSelectionAnimation(container, animation, currentTime);
-            }
-        });
+    
+    if (mesh.material) {
+      if (Array.isArray(mesh.material)) {
+        mesh.material.forEach(mat => mat.dispose());
+      } else {
+        mesh.material.dispose();
+      }
     }
-
-    updateSelectionAnimation(container, animation, currentTime) {
-        const elapsed = (currentTime - animation.startTime) / 1000;
-        const bounceHeight = 0.3;
-        const bounceSpeed = 5;
-        
-        const bounce = Math.sin(elapsed * bounceSpeed) * bounceHeight;
-        container.position.y = animation.originalY + bounce;
+    
+    // Dispose children
+    mesh.children.forEach(child => {
+      this.disposeMesh(child);
+    });
+  }
+  
+  /**
+   * Dispose container
+   */
+  dispose() {
+    // Clear items
+    this.clearItems();
+    
+    // Dispose container
+    if (this.containerMesh) {
+      this.disposeMesh(this.containerMesh);
     }
-
-    updateLoadingAnimation(container, animation, currentTime) {
-        const elapsed = currentTime - animation.startTime;
-        const progress = Math.min(elapsed / animation.duration, 1);
-        
-        // Smooth step interpolation
-        const smoothProgress = progress * progress * (3 - 2 * progress);
-        
-        container.position.lerpVectors(
-            animation.startPosition,
-            animation.targetPosition,
-            smoothProgress
-        );
-        
-        if (progress === 1) {
-            this.animations.delete(container.userData.containerId);
-        }
+    
+    // Dispose wireframe
+    if (this.wireframe) {
+      this.disposeMesh(this.wireframe);
     }
-
-    toggleAnimation() {
-        this.isAnimating = !this.isAnimating;
+    
+    // Dispose floor
+    if (this.floor) {
+      this.disposeMesh(this.floor);
     }
-
-    clearAllContainers() {
-        this.containers.forEach(container => {
-            this.scene.remove(container);
-        });
-        this.containers.clear();
-        this.containerMeshes.clear();
-        this.animations.clear();
-    }
-
-    getContainerInfo(containerId) {
-        const container = this.containers.get(containerId);
-        return container ? container.userData : null;
-    }
-
-    getAllContainers() {
-        return Array.from(this.containers.values());
-    }
-
-    getContainersByVehicle(vehicleId) {
-        return Array.from(this.containers.values()).filter(
-            container => container.userData.assignedVehicle === vehicleId
-        );
-    }
-
-    dispose() {
-        this.clearAllContainers();
-        
-        // Dispose materials
-        Object.values(this.materials).forEach(material => material.dispose());
-    }
+    
+    // Dispose walls
+    this.walls.forEach(wall => {
+      this.disposeMesh(wall);
+    });
+    
+    // Clear group
+    this.group.clear();
+  }
 }
+
+/**
+ * Standard container presets
+ */
+export const ContainerPresets = {
+  '20ft': {
+    name: '20ft Standard',
+    length: 5898,
+    width: 2352,
+    height: 2393,
+    max_weight: 28180
+  },
+  '40ft': {
+    name: '40ft Standard',
+    length: 12032,
+    width: 2352,
+    height: 2393,
+    max_weight: 26680
+  },
+  '40ft_hc': {
+    name: '40ft High Cube',
+    length: 12032,
+    width: 2352,
+    height: 2698,
+    max_weight: 26560
+  },
+  '45ft_hc': {
+    name: '45ft High Cube',
+    length: 13556,
+    width: 2352,
+    height: 2698,
+    max_weight: 27700
+  }
+};

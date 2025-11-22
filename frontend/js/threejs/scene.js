@@ -1,322 +1,557 @@
+/**
+ * Three.js Scene Manager
+ * Manages the 3D scene, camera, and controls
+ */
+
 import * as THREE from 'three';
-import { Renderer } from './renderer.js';
-import { ContainerManager } from './container.js';
-import { Ship } from './ship.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-export class CargoScene {
-    constructor(containerId) {
-        this.container = document.getElementById(containerId);
-        this.scene = new THREE.Scene();
-        this.camera = null;
-        this.renderer = new Renderer(this.container);
-        this.containerManager = new ContainerManager(this.scene);
-        this.ship = new Ship(this.scene);
-        
-        this.raycaster = new THREE.Raycaster();
-        this.mouse = new THREE.Vector2();
-        this.selectedObject = null;
-        
-        this.init();
-        this.setupEventListeners();
+export class SceneManager {
+  constructor(containerElement, options = {}) {
+    this.containerElement = containerElement;
+    this.options = {
+      backgroundColor: options.backgroundColor || 0xf0f0f0,
+      fogColor: options.fogColor || 0xf0f0f0,
+      fogNear: options.fogNear || 1000,
+      fogFar: options.fogFar || 10000,
+      cameraFov: options.cameraFov || 60,
+      cameraNear: options.cameraNear || 0.1,
+      cameraFar: options.cameraFar || 20000,
+      enableShadows: options.enableShadows !== false,
+      enableFog: options.enableFog || false,
+      gridSize: options.gridSize || 10000,
+      gridDivisions: options.gridDivisions || 100,
+      ...options
+    };
+    
+    // Three.js core objects
+    this.scene = null;
+    this.camera = null;
+    this.controls = null;
+    this.clock = null;
+    
+    // Helpers
+    this.gridHelper = null;
+    this.axesHelper = null;
+    
+    // Objects registry
+    this.objects = new Map();
+    this.groups = new Map();
+    
+    // Animation
+    this.animationFrameId = null;
+    this.animationCallbacks = [];
+    
+    this.init();
+  }
+  
+  /**
+   * Initialize the scene
+   */
+  init() {
+    // Create scene
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(this.options.backgroundColor);
+    
+    // Add fog if enabled
+    if (this.options.enableFog) {
+      this.scene.fog = new THREE.Fog(
+        this.options.fogColor,
+        this.options.fogNear,
+        this.options.fogFar
+      );
     }
-
-    init() {
-        // Setup camera
-        this.camera = new THREE.PerspectiveCamera(
-            75,
-            this.container.clientWidth / this.container.clientHeight,
-            0.1,
-            1000
-        );
-        this.camera.position.set(15, 10, 15);
-        this.camera.lookAt(0, 0, 0);
-
-        // Setup lighting
-        this.setupLighting();
-
-        // Add coordinate helpers
-        this.addHelpers();
-
-        // Add ground plane
-        this.addGround();
-
-        // Start animation loop
-        this.animate();
+    
+    // Create camera
+    this.createCamera();
+    
+    // Create controls
+    this.createControls();
+    
+    // Add lights
+    this.createLights();
+    
+    // Add helpers
+    this.createHelpers();
+    
+    // Create clock for animations
+    this.clock = new THREE.Clock();
+    
+    console.log('Scene initialized');
+  }
+  
+  /**
+   * Create camera
+   */
+  createCamera() {
+    const width = this.containerElement.clientWidth;
+    const height = this.containerElement.clientHeight;
+    const aspect = width / height;
+    
+    this.camera = new THREE.PerspectiveCamera(
+      this.options.cameraFov,
+      aspect,
+      this.options.cameraNear,
+      this.options.cameraFar
+    );
+    
+    // Default camera position
+    this.camera.position.set(5000, 5000, 5000);
+    this.camera.lookAt(0, 0, 0);
+    
+    console.log('Camera created');
+  }
+  
+  /**
+   * Create orbit controls
+   */
+  createControls() {
+    if (!this.camera) return;
+    
+    // Note: renderer canvas will be passed when renderer is created
+    this.controlsTarget = null;
+    
+    console.log('Controls ready for initialization');
+  }
+  
+  /**
+   * Initialize controls with renderer
+   */
+  initializeControls(rendererDomElement) {
+    this.controls = new OrbitControls(this.camera, rendererDomElement);
+    
+    // Configure controls
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.screenSpacePanning = false;
+    this.controls.minDistance = 100;
+    this.controls.maxDistance = 15000;
+    this.controls.maxPolarAngle = Math.PI / 2;
+    
+    // Mouse buttons
+    this.controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN
+    };
+    
+    console.log('Controls initialized');
+  }
+  
+  /**
+   * Create lighting
+   */
+  createLights() {
+    // Ambient light for overall illumination
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    ambientLight.name = 'ambient_light';
+    this.scene.add(ambientLight);
+    
+    // Directional light (main light)
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5000, 5000, 5000);
+    directionalLight.name = 'main_light';
+    
+    if (this.options.enableShadows) {
+      directionalLight.castShadow = true;
+      directionalLight.shadow.mapSize.width = 2048;
+      directionalLight.shadow.mapSize.height = 2048;
+      directionalLight.shadow.camera.near = 100;
+      directionalLight.shadow.camera.far = 15000;
+      directionalLight.shadow.camera.left = -5000;
+      directionalLight.shadow.camera.right = 5000;
+      directionalLight.shadow.camera.top = 5000;
+      directionalLight.shadow.camera.bottom = -5000;
     }
-
-    setupLighting() {
-        // Ambient light
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-        this.scene.add(ambientLight);
-
-        // Directional light
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(10, 20, 5);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        this.scene.add(directionalLight);
-
-        // Hemisphere light for natural outdoor lighting
-        const hemisphereLight = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.4);
-        this.scene.add(hemisphereLight);
+    
+    this.scene.add(directionalLight);
+    
+    // Hemisphere light for ambient sky/ground color
+    const hemisphereLight = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.3);
+    hemisphereLight.name = 'hemisphere_light';
+    this.scene.add(hemisphereLight);
+    
+    // Point lights for additional illumination
+    const pointLight1 = new THREE.PointLight(0xffffff, 0.3, 10000);
+    pointLight1.position.set(-3000, 3000, 3000);
+    pointLight1.name = 'point_light_1';
+    this.scene.add(pointLight1);
+    
+    const pointLight2 = new THREE.PointLight(0xffffff, 0.3, 10000);
+    pointLight2.position.set(3000, 3000, -3000);
+    pointLight2.name = 'point_light_2';
+    this.scene.add(pointLight2);
+    
+    console.log('Lights created');
+  }
+  
+  /**
+   * Create scene helpers (grid, axes)
+   */
+  createHelpers() {
+    // Grid helper
+    this.gridHelper = new THREE.GridHelper(
+      this.options.gridSize,
+      this.options.gridDivisions,
+      0x888888,
+      0xcccccc
+    );
+    this.gridHelper.name = 'grid_helper';
+    this.gridHelper.material.opacity = 0.3;
+    this.gridHelper.material.transparent = true;
+    this.scene.add(this.gridHelper);
+    
+    // Axes helper
+    this.axesHelper = new THREE.AxesHelper(2000);
+    this.axesHelper.name = 'axes_helper';
+    this.scene.add(this.axesHelper);
+    
+    console.log('Helpers created');
+  }
+  
+  /**
+   * Add object to scene
+   */
+  addObject(object, name = null) {
+    if (name) {
+      object.name = name;
+      this.objects.set(name, object);
     }
-
-    addHelpers() {
-        // Axes helper
-        const axesHelper = new THREE.AxesHelper(5);
-        this.scene.add(axesHelper);
-
-        // Grid helper
-        const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
-        gridHelper.position.y = -0.1;
-        this.scene.add(gridHelper);
-    }
-
-    addGround() {
-        const groundGeometry = new THREE.PlaneGeometry(40, 40);
-        const groundMaterial = new THREE.MeshLambertMaterial({ 
-            color: 0x3a3a3a,
-            side: THREE.DoubleSide 
-        });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = Math.PI / 2;
-        ground.position.y = -0.1;
-        ground.receiveShadow = true;
-        this.scene.add(ground);
-    }
-
-    setupEventListeners() {
-        // Window resize
-        window.addEventListener('resize', () => this.onWindowResize());
-
-        // Mouse events for interaction
-        this.container.addEventListener('mousemove', (event) => this.onMouseMove(event));
-        this.container.addEventListener('click', (event) => this.onMouseClick(event));
-        this.container.addEventListener('dblclick', (event) => this.onDoubleClick(event));
-
-        // Keyboard controls
-        document.addEventListener('keydown', (event) => this.onKeyDown(event));
-    }
-
-    onWindowResize() {
-        this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-    }
-
-    onMouseMove(event) {
-        const rect = this.container.getBoundingClientRect();
-        this.mouse.x = ((event.clientX - rect.left) / this.container.clientWidth) * 2 - 1;
-        this.mouse.y = -((event.clientY - rect.top) / this.container.clientHeight) * 2 + 1;
-
-        // Update raycaster
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        
-        // Highlight hovered objects
-        const intersects = this.raycaster.intersectObjects(this.scene.children, true);
-        
-        // Remove highlight from all containers
-        this.containerManager.removeAllHighlights();
-        
-        if (intersects.length > 0) {
-            const object = intersects[0].object;
-            const container = this.findParentContainer(object);
-            if (container) {
-                this.containerManager.highlightContainer(container.userData.containerId);
-            }
+    this.scene.add(object);
+    return object;
+  }
+  
+  /**
+   * Remove object from scene
+   */
+  removeObject(nameOrObject) {
+    let object;
+    
+    if (typeof nameOrObject === 'string') {
+      object = this.objects.get(nameOrObject);
+      this.objects.delete(nameOrObject);
+    } else {
+      object = nameOrObject;
+      // Remove from registry if exists
+      for (const [name, obj] of this.objects.entries()) {
+        if (obj === object) {
+          this.objects.delete(name);
+          break;
         }
+      }
     }
-
-    onMouseClick(event) {
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.scene.children, true);
-
-        if (intersects.length > 0) {
-            const object = intersects[0].object;
-            const container = this.findParentContainer(object);
-            
-            if (container) {
-                this.selectContainer(container.userData.containerId);
-                
-                // Dispatch custom event
-                const containerSelectedEvent = new CustomEvent('containerSelected', {
-                    detail: {
-                        containerId: container.userData.containerId,
-                        containerData: container.userData
-                    }
-                });
-                document.dispatchEvent(containerSelectedEvent);
-            }
+    
+    if (object) {
+      this.scene.remove(object);
+      this.disposeObject(object);
+    }
+  }
+  
+  /**
+   * Get object by name
+   */
+  getObject(name) {
+    return this.objects.get(name);
+  }
+  
+  /**
+   * Create group
+   */
+  createGroup(name) {
+    const group = new THREE.Group();
+    group.name = name;
+    this.groups.set(name, group);
+    this.scene.add(group);
+    return group;
+  }
+  
+  /**
+   * Get group by name
+   */
+  getGroup(name) {
+    return this.groups.get(name);
+  }
+  
+  /**
+   * Clear all objects from scene
+   */
+  clearObjects() {
+    // Remove all registered objects
+    this.objects.forEach((object, name) => {
+      this.scene.remove(object);
+      this.disposeObject(object);
+    });
+    this.objects.clear();
+    
+    // Remove all groups
+    this.groups.forEach((group, name) => {
+      this.scene.remove(group);
+      this.disposeObject(group);
+    });
+    this.groups.clear();
+  }
+  
+  /**
+   * Dispose object and its resources
+   */
+  disposeObject(object) {
+    object.traverse((child) => {
+      if (child.geometry) {
+        child.geometry.dispose();
+      }
+      
+      if (child.material) {
+        if (Array.isArray(child.material)) {
+          child.material.forEach(material => material.dispose());
         } else {
-            this.deselectContainer();
+          child.material.dispose();
         }
+      }
+      
+      if (child.texture) {
+        child.texture.dispose();
+      }
+    });
+  }
+  
+  /**
+   * Set camera position
+   */
+  setCameraPosition(x, y, z) {
+    if (this.camera) {
+      this.camera.position.set(x, y, z);
     }
-
-    onDoubleClick(event) {
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.scene.children, true);
-
-        if (intersects.length > 0) {
-            const object = intersects[0].object;
-            const container = this.findParentContainer(object);
-            
-            if (container) {
-                // Focus camera on container
-                this.focusOnObject(container);
-                
-                // Dispatch custom event
-                const containerFocusedEvent = new CustomEvent('containerFocused', {
-                    detail: {
-                        containerId: container.userData.containerId
-                    }
-                });
-                document.dispatchEvent(containerFocusedEvent);
-            }
+  }
+  
+  /**
+   * Set camera view
+   */
+  setCameraView(view) {
+    if (!this.camera || !this.controls) return;
+    
+    const distance = 6000;
+    const target = new THREE.Vector3(0, 0, 0);
+    
+    switch (view) {
+      case 'front':
+        this.camera.position.set(0, distance / 2, distance);
+        break;
+      case 'back':
+        this.camera.position.set(0, distance / 2, -distance);
+        break;
+      case 'left':
+        this.camera.position.set(-distance, distance / 2, 0);
+        break;
+      case 'right':
+        this.camera.position.set(distance, distance / 2, 0);
+        break;
+      case 'top':
+        this.camera.position.set(0, distance, 0);
+        break;
+      case 'bottom':
+        this.camera.position.set(0, -distance, 0);
+        break;
+      case 'isometric':
+        this.camera.position.set(distance, distance, distance);
+        break;
+      default:
+        this.camera.position.set(distance, distance, distance);
+    }
+    
+    this.camera.lookAt(target);
+    this.controls.target.copy(target);
+    this.controls.update();
+  }
+  
+  /**
+   * Fit camera to object
+   */
+  fitCameraToObject(object, offset = 1.5) {
+    if (!this.camera || !this.controls) return;
+    
+    const boundingBox = new THREE.Box3().setFromObject(object);
+    const center = boundingBox.getCenter(new THREE.Vector3());
+    const size = boundingBox.getSize(new THREE.Vector3());
+    
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = this.camera.fov * (Math.PI / 180);
+    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+    cameraZ *= offset;
+    
+    this.camera.position.set(
+      center.x + cameraZ,
+      center.y + cameraZ,
+      center.z + cameraZ
+    );
+    this.camera.lookAt(center);
+    
+    this.controls.target.copy(center);
+    this.controls.maxDistance = cameraZ * 3;
+    this.controls.update();
+  }
+  
+  /**
+   * Fit camera to selection
+   */
+  fitCameraToSelection(objects, offset = 1.5) {
+    if (!this.camera || !this.controls || objects.length === 0) return;
+    
+    const boundingBox = new THREE.Box3();
+    objects.forEach(obj => {
+      const box = new THREE.Box3().setFromObject(obj);
+      boundingBox.union(box);
+    });
+    
+    const center = boundingBox.getCenter(new THREE.Vector3());
+    const size = boundingBox.getSize(new THREE.Vector3());
+    
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = this.camera.fov * (Math.PI / 180);
+    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+    cameraZ *= offset;
+    
+    this.camera.position.set(
+      center.x + cameraZ,
+      center.y + cameraZ,
+      center.z + cameraZ
+    );
+    this.camera.lookAt(center);
+    
+    this.controls.target.copy(center);
+    this.controls.update();
+  }
+  
+  /**
+   * Toggle grid visibility
+   */
+  toggleGrid(visible) {
+    if (this.gridHelper) {
+      this.gridHelper.visible = visible;
+    }
+  }
+  
+  /**
+   * Toggle axes visibility
+   */
+  toggleAxes(visible) {
+    if (this.axesHelper) {
+      this.axesHelper.visible = visible;
+    }
+  }
+  
+  /**
+   * Update camera aspect ratio
+   */
+  updateCameraAspect() {
+    if (!this.camera) return;
+    
+    const width = this.containerElement.clientWidth;
+    const height = this.containerElement.clientHeight;
+    
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+  }
+  
+  /**
+   * Update controls
+   */
+  updateControls() {
+    if (this.controls) {
+      this.controls.update();
+    }
+  }
+  
+  /**
+   * Add animation callback
+   */
+  onAnimate(callback) {
+    this.animationCallbacks.push(callback);
+  }
+  
+  /**
+   * Remove animation callback
+   */
+  offAnimate(callback) {
+    const index = this.animationCallbacks.indexOf(callback);
+    if (index > -1) {
+      this.animationCallbacks.splice(index, 1);
+    }
+  }
+  
+  /**
+   * Animation loop (called by renderer)
+   */
+  animate() {
+    const delta = this.clock.getDelta();
+    const elapsed = this.clock.getElapsedTime();
+    
+    // Update controls
+    this.updateControls();
+    
+    // Call animation callbacks
+    this.animationCallbacks.forEach(callback => {
+      callback(delta, elapsed);
+    });
+  }
+  
+  /**
+   * Get scene for rendering
+   */
+  getScene() {
+    return this.scene;
+  }
+  
+  /**
+   * Get camera for rendering
+   */
+  getCamera() {
+    return this.camera;
+  }
+  
+  /**
+   * Get controls
+   */
+  getControls() {
+    return this.controls;
+  }
+  
+  /**
+   * Dispose scene and all resources
+   */
+  dispose() {
+    // Clear all objects
+    this.clearObjects();
+    
+    // Dispose helpers
+    if (this.gridHelper) {
+      this.gridHelper.geometry.dispose();
+      this.gridHelper.material.dispose();
+    }
+    
+    if (this.axesHelper) {
+      this.axesHelper.geometry.dispose();
+      this.axesHelper.material.dispose();
+    }
+    
+    // Dispose controls
+    if (this.controls) {
+      this.controls.dispose();
+    }
+    
+    // Clear scene
+    if (this.scene) {
+      this.scene.traverse((object) => {
+        if (object.geometry) object.geometry.dispose();
+        if (object.material) {
+          if (Array.isArray(object.material)) {
+            object.material.forEach(material => material.dispose());
+          } else {
+            object.material.dispose();
+          }
         }
+      });
     }
-
-    onKeyDown(event) {
-        switch(event.key) {
-            case 'r':
-            case 'R':
-                // Reset camera
-                this.resetCamera();
-                break;
-            case ' ':
-                // Toggle animation
-                this.toggleAnimation();
-                break;
-            case 'h':
-            case 'H':
-                // Toggle helpers
-                this.toggleHelpers();
-                break;
-        }
-    }
-
-    findParentContainer(object) {
-        let current = object;
-        while (current !== null) {
-            if (current.userData && current.userData.isContainer) {
-                return current;
-            }
-            current = current.parent;
-        }
-        return null;
-    }
-
-    selectContainer(containerId) {
-        this.deselectContainer();
-        this.selectedObject = this.containerManager.selectContainer(containerId);
-    }
-
-    deselectContainer() {
-        if (this.selectedObject) {
-            this.containerManager.deselectContainer(this.selectedObject.userData.containerId);
-            this.selectedObject = null;
-        }
-    }
-
-    focusOnObject(object) {
-        const box = new THREE.Box3().setFromObject(object);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const fov = this.camera.fov * (Math.PI / 180);
-        let cameraDistance = maxDim / (2 * Math.tan(fov / 2));
-        
-        cameraDistance *= 1.5; // Add some padding
-        
-        const direction = new THREE.Vector3()
-            .subVectors(this.camera.position, center)
-            .normalize();
-        
-        this.camera.position.copy(center).add(direction.multiplyScalar(cameraDistance));
-        this.camera.lookAt(center);
-    }
-
-    resetCamera() {
-        this.camera.position.set(15, 10, 15);
-        this.camera.lookAt(0, 0, 0);
-    }
-
-    toggleAnimation() {
-        this.containerManager.toggleAnimation();
-    }
-
-    toggleHelpers() {
-        const helpers = this.scene.children.filter(child => 
-            child instanceof THREE.AxesHelper || child instanceof THREE.GridHelper
-        );
-        helpers.forEach(helper => {
-            helper.visible = !helper.visible;
-        });
-    }
-
-    loadOptimizationResult(optimizationResult) {
-        // Clear existing containers
-        this.containerManager.clearAllContainers();
-        
-        // Load ship based on vehicles
-        const vehicles = optimizationResult.vehicles || [];
-        this.ship.loadVehicles(vehicles);
-        
-        // Load container assignments
-        const assignments = optimizationResult.assignments || {};
-        this.containerManager.loadAssignments(assignments, optimizationResult.containers || []);
-        
-        // Update camera to show entire scene
-        this.fitSceneToView();
-    }
-
-    fitSceneToView() {
-        const bbox = new THREE.Box3().setFromObject(this.scene);
-        const center = bbox.getCenter(new THREE.Vector3());
-        const size = bbox.getSize(new THREE.Vector3());
-        
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const fov = this.camera.fov * (Math.PI / 180);
-        let cameraDistance = Math.abs(maxDim / Math.sin(fov / 2));
-        
-        cameraDistance *= 1.2; // Add padding
-        
-        this.camera.position.copy(center);
-        this.camera.position.x += cameraDistance;
-        this.camera.position.y += cameraDistance * 0.5;
-        this.camera.position.z += cameraDistance;
-        this.camera.lookAt(center);
-    }
-
-    highlightVehicle(vehicleId) {
-        this.ship.highlightVehicle(vehicleId);
-    }
-
-    highlightContainer(containerId) {
-        this.containerManager.highlightContainer(containerId);
-    }
-
-    animate() {
-        requestAnimationFrame(() => this.animate());
-        
-        // Update container animations
-        this.containerManager.update();
-        
-        // Update ship animations
-        this.ship.update();
-        
-        // Render scene
-        this.renderer.render(this.scene, this.camera);
-    }
-
-    dispose() {
-        this.renderer.dispose();
-        this.containerManager.dispose();
-        this.ship.dispose();
-        
-        // Remove event listeners
-        window.removeEventListener('resize', this.onWindowResize);
-        // ... remove other event listeners
-    }
+    
+    console.log('Scene disposed');
+  }
 }
