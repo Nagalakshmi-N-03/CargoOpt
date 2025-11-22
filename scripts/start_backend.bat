@@ -1,89 +1,100 @@
 @echo off
-REM CargoOpt Backend Startup Script for Windows
-REM Starts the FastAPI backend server
+REM ============================================
+REM Backend Server Startup Script
+REM ============================================
 
+setlocal enabledelayedexpansion
+
+echo ============================================
+echo Starting Backend Server
+echo ============================================
 echo.
-echo ========================================
-echo    CargoOpt Backend Startup
-echo ========================================
-echo.
 
-REM Add PostgreSQL 18 to PATH
-set "PATH=%PATH%;C:\Program Files\PostgreSQL\18\bin"
+REM Set project root directory
+set "PROJECT_ROOT=%~dp0.."
+cd /d "%PROJECT_ROOT%"
 
-REM Check if Python is installed
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: Python is not installed or not in PATH
-    echo Please install Python 3.8+ and try again
+REM Check if virtual environment exists
+if not exist "venv\Scripts\activate.bat" (
+    echo [ERROR] Virtual environment not found!
+    echo Please run install_dependencies.bat first.
     pause
     exit /b 1
 )
 
-REM Check if virtual environment exists
-if not exist "..\venv\" (
-    echo Virtual environment not found. Creating one...
-    python -m venv ..\venv
-    if errorlevel 1 (
-        echo ERROR: Failed to create virtual environment
-        pause
-        exit /b 1
-    )
-)
-
 REM Activate virtual environment
-echo Activating virtual environment...
-call ..\venv\Scripts\activate.bat
-
-REM Check if requirements are installed
-python -c "import fastapi" >nul 2>&1
-if errorlevel 1 (
-    echo Installing requirements...
-    pip install -r ..\requirements.txt
-    if errorlevel 1 (
-        echo ERROR: Failed to install requirements
-        pause
-        exit /b 1
-    )
-)
+echo [INFO] Activating virtual environment...
+call venv\Scripts\activate.bat
 
 REM Check if .env file exists
-if not exist "..\.env" (
-    echo WARNING: .env file not found!
-    echo Please create .env file from .env.example
-    echo Continuing with default settings...
+if not exist ".env" (
+    echo [WARNING] .env file not found. Using default configuration.
+    if exist ".env.example" (
+        copy ".env.example" ".env"
+        echo [INFO] Created .env from .env.example
+    )
 )
 
-REM Create necessary directories
-echo Creating necessary directories...
-if not exist "..\logs" mkdir "..\logs"
-if not exist "..\data\exports" mkdir "..\data\exports"
-if not exist "..\data\exports\stowage_plans" mkdir "..\data\exports\stowage_plans"
-if not exist "..\data\exports\reports" mkdir "..\data\exports\reports"
-if not exist "..\data\temp" mkdir "..\data\temp"
+REM Load environment variables from .env
+if exist ".env" (
+    echo [INFO] Loading environment variables...
+    for /f "usebackq tokens=1,* delims==" %%a in (".env") do (
+        set "line=%%a"
+        if not "!line:~0,1!"=="#" (
+            if not "%%a"=="" set "%%a=%%b"
+        )
+    )
+)
 
-REM Set environment variables
-set PYTHONPATH=..
-set CARGOOPT_ENV=development
+REM Set default values if not defined
+if not defined BACKEND_HOST set "BACKEND_HOST=0.0.0.0"
+if not defined BACKEND_PORT set "BACKEND_PORT=8000"
+if not defined DEBUG set "DEBUG=false"
 
-REM Display startup information
+REM Check if required packages are installed
+echo [INFO] Verifying dependencies...
+python -c "import fastapi" 2>nul
+if errorlevel 1 (
+    echo [ERROR] FastAPI not installed. Running dependency installation...
+    call "%~dp0install_dependencies.bat"
+)
+
+REM Check database connection
+echo [INFO] Checking database connection...
+python -c "from backend.database import check_connection; check_connection()" 2>nul
+if errorlevel 1 (
+    echo [WARNING] Database connection check failed.
+    echo Make sure PostgreSQL is running and configured correctly.
+)
+
 echo.
-echo ========================================
-echo    Starting CargoOpt Backend Server
-echo ========================================
-echo.
-echo Backend URL: http://localhost:5000
-echo API Docs:    http://localhost:5000/docs
-echo Health Check: http://localhost:5000/health
-echo.
-echo Press Ctrl+C to stop the server
+echo ============================================
+echo Server Configuration:
+echo   Host: %BACKEND_HOST%
+echo   Port: %BACKEND_PORT%
+echo   Debug: %DEBUG%
+echo ============================================
 echo.
 
-REM Start the FastAPI server
-cd ..
-python run.py
+REM Start the backend server
+echo [INFO] Starting uvicorn server...
+echo [INFO] Press Ctrl+C to stop the server
+echo.
 
-REM Deactivate virtual environment on exit
-call venv\Scripts\deactivate.bat
+if "%DEBUG%"=="true" (
+    python -m uvicorn backend.main:app --host %BACKEND_HOST% --port %BACKEND_PORT% --reload --log-level debug
+) else (
+    python -m uvicorn backend.main:app --host %BACKEND_HOST% --port %BACKEND_PORT% --workers 4
+)
 
+REM Handle exit
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Server exited with an error.
+    pause
+    exit /b 1
+)
+
+echo.
+echo [INFO] Server stopped.
 pause
