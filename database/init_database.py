@@ -1,236 +1,431 @@
-#!/usr/bin/env python3
 """
 CargoOpt Database Initialization Script
-Standalone script for database setup and initialization
+Initializes the PostgreSQL database with schema and sample data.
 """
 
 import os
 import sys
-import logging
-import asyncio
+import psycopg2
+from psycopg2 import sql
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+import argparse
 from pathlib import Path
+from typing import Optional
+import logging
 
-# Add backend to Python path
-sys.path.append(str(Path(__file__).parent.parent))
-
-from backend.config.settings import get_settings
-from backend.config.database import init_db, test_connection, close_connection
-
-# Configure logging
+# Setup logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
+
 class DatabaseInitializer:
-    """Database initialization and management class"""
+    """Handles database initialization and setup."""
     
-    def __init__(self):
-        self.settings = get_settings()
-        self.schema_file = Path('database/schema.sql')
-        self.sample_data_file = Path('database/sample_data.sql')
+    def __init__(
+        self,
+        host: str = 'localhost',
+        port: int = 5432,
+        database: str = 'cargoopt',
+        user: str = 'postgres',
+        password: str = '',
+        admin_database: str = 'postgres'
+    ):
+        """
+        Initialize database initializer.
         
-    async def check_database_connection(self) -> bool:
-        """Test database connection"""
+        Args:
+            host: Database host
+            port: Database port
+            database: Target database name
+            user: Database user
+            password: Database password
+            admin_database: Admin database for creating new database
+        """
+        self.host = host
+        self.port = port
+        self.database = database
+        self.user = user
+        self.password = password
+        self.admin_database = admin_database
+        
+        # Get script directory
+        self.script_dir = Path(__file__).parent
+        self.schema_file = self.script_dir / 'schema.sql'
+        self.sample_data_file = self.script_dir / 'sample_data.sql'
+    
+    def get_connection_params(self, database: Optional[str] = None) -> dict:
+        """Get connection parameters dictionary."""
+        return {
+            'host': self.host,
+            'port': self.port,
+            'database': database or self.database,
+            'user': self.user,
+            'password': self.password
+        }
+    
+    def test_connection(self) -> bool:
+        """
+        Test database connection.
+        
+        Returns:
+            True if connection successful
+        """
         try:
             logger.info("Testing database connection...")
-            success = await test_connection()
-            if success:
-                logger.info("✅ Database connection successful")
-            else:
-                logger.error("❌ Database connection failed")
-            return success
-        except Exception as e:
-            logger.error(f"❌ Database connection test failed: {str(e)}")
-            return False
-    
-    async def initialize_schema(self) -> bool:
-        """Initialize database schema"""
-        try:
-            logger.info("Initializing database schema...")
-            await init_db()
-            logger.info("✅ Database schema initialized successfully")
+            conn = psycopg2.connect(**self.get_connection_params(self.admin_database))
+            conn.close()
+            logger.info("✓ Database connection successful")
             return True
-        except Exception as e:
-            logger.error(f"❌ Database schema initialization failed: {str(e)}")
+        except psycopg2.Error as e:
+            logger.error(f"✗ Database connection failed: {e}")
             return False
     
-    def read_sql_file(self, file_path: Path) -> str:
-        """Read SQL file content"""
+    def database_exists(self) -> bool:
+        """
+        Check if target database exists.
+        
+        Returns:
+            True if database exists
+        """
         try:
-            if not file_path.exists():
-                logger.warning(f"SQL file not found: {file_path}")
-                return ""
+            conn = psycopg2.connect(**self.get_connection_params(self.admin_database))
+            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            cursor = conn.cursor()
             
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return f.read()
-        except Exception as e:
-            logger.error(f"Error reading SQL file {file_path}: {str(e)}")
-            return ""
+            cursor.execute(
+                "SELECT 1 FROM pg_database WHERE datname = %s",
+                (self.database,)
+            )
+            
+            exists = cursor.fetchone() is not None
+            cursor.close()
+            conn.close()
+            
+            return exists
+        except psycopg2.Error as e:
+            logger.error(f"Error checking database existence: {e}")
+            return False
     
-    async def execute_sql_script(self, sql_content: str, description: str) -> bool:
-        """Execute SQL script content"""
-        if not sql_content.strip():
-            logger.warning(f"No SQL content to execute for {description}")
+    def create_database(self) -> bool:
+        """
+        Create the target database.
+        
+        Returns:
+            True if database created successfully
+        """
+        try:
+            logger.info(f"Creating database '{self.database}'...")
+            
+            conn = psycopg2.connect(**self.get_connection_params(self.admin_database))
+            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            cursor = conn.cursor()
+            
+            # Create database
+            cursor.execute(
+                sql.SQL("CREATE DATABASE {}").format(sql.Identifier(self.database))
+            )
+            
+            cursor.close()
+            conn.close()
+            
+            logger.info(f"✓ Database '{self.database}' created successfully")
             return True
-            
-        try:
-            from backend.config.database import AsyncSessionLocal
-            
-            async with AsyncSessionLocal() as session:
-                # Split SQL by semicolons and execute each statement
-                statements = [stmt.strip() for stmt in sql_content.split(';') if stmt.strip()]
-                
-                for i, statement in enumerate(statements, 1):
-                    if statement:  # Skip empty statements
-                        try:
-                            await session.execute(statement)
-                            logger.debug(f"Executed statement {i}/{len(statements)}")
-                        except Exception as e:
-                            logger.warning(f"Statement {i} execution warning: {str(e)}")
-                
-                await session.commit()
-                logger.info(f"✅ {description} executed successfully")
-                return True
-                
-        except Exception as e:
-            logger.error(f"❌ {description} execution failed: {str(e)}")
+        except psycopg2.Error as e:
+            logger.error(f"✗ Failed to create database: {e}")
             return False
     
-    async def run_schema_sql(self) -> bool:
-        """Execute schema SQL file"""
-        logger.info("Executing schema SQL...")
-        sql_content = self.read_sql_file(self.schema_file)
-        if not sql_content:
-            logger.error("No schema SQL content found")
+    def drop_database(self) -> bool:
+        """
+        Drop the target database.
+        
+        Returns:
+            True if database dropped successfully
+        """
+        try:
+            logger.warning(f"Dropping database '{self.database}'...")
+            
+            conn = psycopg2.connect(**self.get_connection_params(self.admin_database))
+            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            cursor = conn.cursor()
+            
+            # Terminate existing connections
+            cursor.execute(f"""
+                SELECT pg_terminate_backend(pg_stat_activity.pid)
+                FROM pg_stat_activity
+                WHERE pg_stat_activity.datname = '{self.database}'
+                AND pid <> pg_backend_pid()
+            """)
+            
+            # Drop database
+            cursor.execute(
+                sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(self.database))
+            )
+            
+            cursor.close()
+            conn.close()
+            
+            logger.info(f"✓ Database '{self.database}' dropped successfully")
+            return True
+        except psycopg2.Error as e:
+            logger.error(f"✗ Failed to drop database: {e}")
+            return False
+    
+    def run_sql_file(self, filepath: Path) -> bool:
+        """
+        Execute SQL file.
+        
+        Args:
+            filepath: Path to SQL file
+            
+        Returns:
+            True if executed successfully
+        """
+        if not filepath.exists():
+            logger.error(f"✗ SQL file not found: {filepath}")
             return False
         
-        return await self.execute_sql_script(sql_content, "Schema SQL")
+        try:
+            logger.info(f"Executing SQL file: {filepath.name}")
+            
+            with open(filepath, 'r', encoding='utf-8') as f:
+                sql_content = f.read()
+            
+            conn = psycopg2.connect(**self.get_connection_params())
+            cursor = conn.cursor()
+            
+            # Execute SQL
+            cursor.execute(sql_content)
+            conn.commit()
+            
+            cursor.close()
+            conn.close()
+            
+            logger.info(f"✓ SQL file executed successfully: {filepath.name}")
+            return True
+        except psycopg2.Error as e:
+            logger.error(f"✗ Failed to execute SQL file: {e}")
+            return False
     
-    async def load_sample_data(self) -> bool:
-        """Load sample data into database"""
+    def create_schema(self) -> bool:
+        """
+        Create database schema.
+        
+        Returns:
+            True if schema created successfully
+        """
+        logger.info("Creating database schema...")
+        return self.run_sql_file(self.schema_file)
+    
+    def load_sample_data(self) -> bool:
+        """
+        Load sample data into database.
+        
+        Returns:
+            True if data loaded successfully
+        """
         logger.info("Loading sample data...")
-        sql_content = self.read_sql_file(self.sample_data_file)
-        if not sql_content:
-            logger.warning("No sample data SQL content found - skipping")
-            return True  # This is optional, so don't fail if missing
+        return self.run_sql_file(self.sample_data_file)
+    
+    def verify_installation(self) -> bool:
+        """
+        Verify database installation.
         
-        return await self.execute_sql_script(sql_content, "Sample data SQL")
-    
-    async def run_migrations(self) -> bool:
-        """Run database migrations (if using Alembic)"""
+        Returns:
+            True if verification successful
+        """
         try:
-            # This would run Alembic migrations if configured
-            logger.info("Checking for database migrations...")
-            # Placeholder for Alembic migration execution
-            logger.info("✅ Database migrations completed (if any)")
-            return True
-        except Exception as e:
-            logger.error(f"❌ Database migrations failed: {str(e)}")
-            return False
-    
-    async def verify_database_setup(self) -> bool:
-        """Verify database setup by checking key tables"""
-        try:
-            from backend.config.database import AsyncSessionLocal
-            from sqlalchemy import text
+            logger.info("Verifying database installation...")
             
-            required_tables = [
-                'vessels', 'containers', 'vessel_compartments', 
-                'stowage_plans', 'stowage_positions'
+            conn = psycopg2.connect(**self.get_connection_params())
+            cursor = conn.cursor()
+            
+            # Check tables
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+                ORDER BY table_name
+            """)
+            
+            tables = [row[0] for row in cursor.fetchall()]
+            
+            expected_tables = [
+                'users', 'containers', 'items', 'optimizations', 'placements',
+                'vessels', 'vessel_compartments', 'stowage_plans', 'stowage_positions',
+                'configurations', 'audit_logs'
             ]
             
-            async with AsyncSessionLocal() as session:
-                for table in required_tables:
-                    result = await session.execute(
-                        text(f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '{table}'")
-                    )
-                    exists = result.scalar() > 0
-                    
-                    if exists:
-                        # Count rows in table
-                        count_result = await session.execute(text(f"SELECT COUNT(*) FROM {table}"))
-                        row_count = count_result.scalar()
-                        logger.info(f"✅ Table '{table}' exists with {row_count} rows")
-                    else:
-                        logger.error(f"❌ Table '{table}' does not exist")
-                        return False
+            missing_tables = set(expected_tables) - set(tables)
             
-            logger.info("✅ All required tables verified successfully")
+            if missing_tables:
+                logger.warning(f"Missing tables: {', '.join(missing_tables)}")
+            else:
+                logger.info("✓ All expected tables present")
+            
+            # Check row counts
+            logger.info("\nTable row counts:")
+            for table in sorted(tables):
+                cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                count = cursor.fetchone()[0]
+                logger.info(f"  {table}: {count} rows")
+            
+            cursor.close()
+            conn.close()
+            
+            logger.info("\n✓ Database verification complete")
             return True
-            
-        except Exception as e:
-            logger.error(f"❌ Database verification failed: {str(e)}")
+        except psycopg2.Error as e:
+            logger.error(f"✗ Verification failed: {e}")
             return False
     
-    async def initialize_database(self) -> bool:
-        """Main database initialization procedure"""
-        logger.info("🚀 Starting CargoOpt Database Initialization...")
-        logger.info(f"📊 Database: {self.settings.database_name}")
-        logger.info(f"🌐 Host: {self.settings.database_host}:{self.settings.database_port}")
+    def initialize(
+        self,
+        drop_existing: bool = False,
+        load_sample: bool = True,
+        verify: bool = True
+    ) -> bool:
+        """
+        Complete database initialization.
         
-        # Step 1: Test connection
-        if not await self.check_database_connection():
+        Args:
+            drop_existing: Drop existing database if it exists
+            load_sample: Load sample data
+            verify: Verify installation after setup
+            
+        Returns:
+            True if initialization successful
+        """
+        logger.info("=" * 70)
+        logger.info("CargoOpt Database Initialization")
+        logger.info("=" * 70)
+        
+        # Test connection
+        if not self.test_connection():
             return False
         
-        # Step 2: Initialize schema
-        if not await self.initialize_schema():
+        # Check if database exists
+        db_exists = self.database_exists()
+        
+        if db_exists:
+            if drop_existing:
+                logger.warning(f"Database '{self.database}' already exists and will be dropped!")
+                if not self.drop_database():
+                    return False
+            else:
+                logger.error(f"Database '{self.database}' already exists. Use --drop to drop it first.")
+                return False
+        
+        # Create database
+        if not self.create_database():
             return False
         
-        # Step 3: Execute schema SQL
-        if not await self.run_schema_sql():
+        # Create schema
+        if not self.create_schema():
             return False
         
-        # Step 4: Run migrations
-        if not await self.run_migrations():
-            return False
+        # Load sample data
+        if load_sample:
+            if not self.load_sample_data():
+                logger.warning("Failed to load sample data, but schema is created")
         
-        # Step 5: Load sample data
-        if not await self.load_sample_data():
-            logger.warning("Sample data loading failed, but continuing...")
+        # Verify installation
+        if verify:
+            if not self.verify_installation():
+                logger.warning("Verification failed, but database may still be usable")
         
-        # Step 6: Verify setup
-        if not await self.verify_database_setup():
-            return False
+        logger.info("\n" + "=" * 70)
+        logger.info("Database initialization complete!")
+        logger.info("=" * 70)
+        logger.info(f"\nDatabase: {self.database}")
+        logger.info(f"Host: {self.host}:{self.port}")
+        logger.info(f"User: {self.user}")
+        logger.info("\nYou can now start the application.")
         
-        logger.info("🎉 Database initialization completed successfully!")
         return True
-    
-    async def cleanup(self):
-        """Cleanup database connections"""
-        await close_connection()
 
-async def main():
-    """Main function"""
-    initializer = DatabaseInitializer()
-    
-    try:
-        success = await initializer.initialize_database()
-        
-        if success:
-            print("\n" + "="*60)
-            print("✅ CARGOOPT DATABASE INITIALIZATION COMPLETED SUCCESSFULLY!")
-            print("="*60)
-            print(f"Database: {initializer.settings.database_name}")
-            print(f"Host: {initializer.settings.database_host}:{initializer.settings.database_port}")
-            print(f"User: {initializer.settings.database_user}")
-            print("\nYou can now start the application with: python run.py")
-            print("="*60)
-        else:
-            print("\n" + "="*60)
-            print("❌ DATABASE INITIALIZATION FAILED!")
-            print("="*60)
-            print("Please check the logs above for errors.")
-            print("Ensure PostgreSQL is running and credentials are correct.")
-            print("="*60)
-            sys.exit(1)
-            
-    except Exception as e:
-        logger.error(f"Database initialization failed: {str(e)}")
-        sys.exit(1)
-    finally:
-        await initializer.cleanup()
 
-if __name__ == "__main__":
-    asyncio.run(main())
+def main():
+    """Main entry point for database initialization."""
+    parser = argparse.ArgumentParser(
+        description='Initialize CargoOpt PostgreSQL database'
+    )
+    
+    parser.add_argument(
+        '--host',
+        default=os.getenv('DB_HOST', 'localhost'),
+        help='Database host (default: localhost)'
+    )
+    
+    parser.add_argument(
+        '--port',
+        type=int,
+        default=int(os.getenv('DB_PORT', 5432)),
+        help='Database port (default: 5432)'
+    )
+    
+    parser.add_argument(
+        '--database',
+        default=os.getenv('DB_NAME', 'cargoopt'),
+        help='Database name (default: cargoopt)'
+    )
+    
+    parser.add_argument(
+        '--user',
+        default=os.getenv('DB_USER', 'postgres'),
+        help='Database user (default: postgres)'
+    )
+    
+    parser.add_argument(
+        '--password',
+        default=os.getenv('DB_PASSWORD', ''),
+        help='Database password'
+    )
+    
+    parser.add_argument(
+        '--drop',
+        action='store_true',
+        help='Drop existing database if it exists'
+    )
+    
+    parser.add_argument(
+        '--no-sample-data',
+        action='store_true',
+        help='Do not load sample data'
+    )
+    
+    parser.add_argument(
+        '--no-verify',
+        action='store_true',
+        help='Skip verification after setup'
+    )
+    
+    args = parser.parse_args()
+    
+    # Check for password
+    if not args.password:
+        logger.warning("No database password provided. Using empty password.")
+        logger.warning("Set DB_PASSWORD environment variable or use --password flag.")
+    
+    # Initialize database
+    initializer = DatabaseInitializer(
+        host=args.host,
+        port=args.port,
+        database=args.database,
+        user=args.user,
+        password=args.password
+    )
+    
+    success = initializer.initialize(
+        drop_existing=args.drop,
+        load_sample=not args.no_sample_data,
+        verify=not args.no_verify
+    )
+    
+    sys.exit(0 if success else 1)
+
+
+if __name__ == '__main__':
+    main()

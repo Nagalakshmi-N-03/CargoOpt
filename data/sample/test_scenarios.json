@@ -1,164 +1,253 @@
 {
-  "scenarios": [
+  "test_scenarios": [
     {
-      "id": "urban_delivery",
-      "name": "Urban Delivery Scenario",
-      "description": "Small package delivery in urban area with mixed containers",
-      "containers": [
-        {
-          "id": "box1",
-          "name": "Small Box",
-          "length": 1.2,
-          "width": 0.8,
-          "height": 0.8,
-          "weight": 150,
-          "type": "box"
-        },
-        {
-          "id": "crate1",
-          "name": "Medium Crate",
-          "length": 1.0,
-          "width": 1.0,
-          "height": 1.0,
-          "weight": 200,
-          "type": "crate"
-        },
-        {
-          "id": "pallet1",
-          "name": "Standard Pallet",
-          "length": 1.5,
-          "width": 1.0,
-          "height": 0.5,
-          "weight": 100,
-          "type": "pallet"
-        },
-        {
-          "id": "box2",
-          "name": "Large Box",
-          "length": 0.8,
-          "width": 0.8,
-          "height": 0.8,
-          "weight": 50,
-          "type": "box"
-        }
+      "scenario_id": "SCEN-001",
+      "name": "Basic Packing - Uniform Boxes",
+      "description": "Simple scenario with uniform box sizes for baseline testing",
+      "difficulty": "easy",
+      "container": {
+        "type": "20ft_standard",
+        "length": 5898,
+        "width": 2352,
+        "height": 2393,
+        "max_weight": 28000
+      },
+      "items": [
+        {"name": "Box A", "length": 600, "width": 400, "height": 400, "weight": 25, "quantity": 50},
+        {"name": "Box B", "length": 600, "width": 400, "height": 400, "weight": 30, "quantity": 50}
       ],
-      "vehicles": [
-        {
-          "id": "van1",
-          "type": "van",
-          "max_weight": 800,
-          "length": 2.5,
-          "width": 1.8,
-          "height": 1.8,
-          "emission_factor": 0.00015
-        },
-        {
-          "id": "small_truck1",
-          "type": "small_truck",
-          "max_weight": 1000,
-          "length": 3.0,
-          "width": 2.0,
-          "height": 2.0,
-          "emission_factor": 0.00012
-        }
-      ],
-      "distance_km": 50
+      "expected_results": {
+        "min_utilization": 75,
+        "target_utilization": 85,
+        "all_items_packed": true
+      }
     },
     {
-      "id": "logistics_operation",
-      "name": "Large Logistics Operation",
-      "description": "Large scale logistics with multiple vehicle types and heavy containers",
-      "containers": [
-        {
-          "id": "heavy_pallet1",
-          "name": "Heavy Pallet",
-          "length": 2.4,
-          "width": 1.2,
-          "height": 1.2,
-          "weight": 500,
-          "type": "pallet"
-        },
-        {
-          "id": "industrial_crate1",
-          "name": "Industrial Crate",
-          "length": 1.2,
-          "width": 1.0,
-          "height": 1.0,
-          "weight": 300,
-          "type": "crate"
-        },
-        {
-          "id": "medium_pallet1",
-          "name": "Medium Pallet",
-          "length": 1.8,
-          "width": 1.2,
-          "height": 1.0,
-          "weight": 400,
-          "type": "pallet"
-        },
-        {
-          "id": "large_box1",
-          "name": "Large Box",
-          "length": 1.0,
-          "width": 1.0,
-          "height": 1.0,
-          "weight": 150,
-          "type": "box"
-        },
-        {
-          "id": "extra_heavy_pallet1",
-          "name": "Extra Heavy Pallet",
-          "length": 2.0,
-          "width": 1.5,
-          "height": 1.0,
-          "weight": 600,
-          "type": "pallet"
-        }
+      "scenario_id": "SCEN-002",
+      "name": "Mixed Sizes - Small to Large",
+      "description": "Various box sizes requiring efficient placement strategy",
+      "difficulty": "medium",
+      "container": {
+        "type": "40ft_standard",
+        "length": 12032,
+        "width": 2352,
+        "height": 2393,
+        "max_weight": 26000
+      },
+      "items": [
+        {"name": "Small Box", "length": 300, "width": 200, "height": 200, "weight": 5, "quantity": 100},
+        {"name": "Medium Box", "length": 600, "width": 400, "height": 400, "weight": 20, "quantity": 50},
+        {"name": "Large Box", "length": 1200, "width": 800, "height": 800, "weight": 80, "quantity": 20},
+        {"name": "XL Crate", "length": 2000, "width": 1000, "height": 1000, "weight": 150, "quantity": 5}
       ],
-      "vehicles": [
-        {
-          "id": "large_truck1",
-          "type": "large_truck",
-          "max_weight": 2000,
-          "length": 5.0,
-          "width": 2.5,
-          "height": 2.5,
-          "emission_factor": 0.00008
-        },
-        {
-          "id": "medium_truck1",
-          "type": "medium_truck",
-          "max_weight": 1500,
-          "length": 4.0,
-          "width": 2.2,
-          "height": 2.2,
-          "emission_factor": 0.00010
-        },
-        {
-          "id": "small_truck2",
-          "type": "small_truck",
-          "max_weight": 1000,
-          "length": 3.0,
-          "width": 2.0,
-          "height": 2.0,
-          "emission_factor": 0.00012
-        }
+      "expected_results": {
+        "min_utilization": 70,
+        "target_utilization": 80
+      }
+    },
+    {
+      "scenario_id": "SCEN-003",
+      "name": "Fragile Items Priority",
+      "description": "Mixed cargo with fragile items requiring top placement",
+      "difficulty": "medium",
+      "container": {
+        "type": "20ft_standard",
+        "length": 5898,
+        "width": 2352,
+        "height": 2393,
+        "max_weight": 28000
+      },
+      "items": [
+        {"name": "Heavy Base", "length": 1000, "width": 800, "height": 400, "weight": 200, "quantity": 10, "fragile": false, "stackable": true},
+        {"name": "Glass Panels", "length": 800, "width": 600, "height": 100, "weight": 30, "quantity": 20, "fragile": true, "stackable": false, "item_type": "glass"},
+        {"name": "Electronics", "length": 500, "width": 400, "height": 300, "weight": 15, "quantity": 30, "fragile": true, "item_type": "electronics"}
       ],
-      "distance_km": 200
+      "constraints": {
+        "fragile_on_top": true,
+        "max_stack_on_fragile": 0
+      },
+      "expected_results": {
+        "min_utilization": 65,
+        "fragile_violations": 0
+      }
+    },
+    {
+      "scenario_id": "SCEN-004",
+      "name": "Weight Distribution Challenge",
+      "description": "Heavy items requiring balanced weight distribution",
+      "difficulty": "hard",
+      "container": {
+        "type": "40ft_standard",
+        "length": 12032,
+        "width": 2352,
+        "height": 2393,
+        "max_weight": 26000
+      },
+      "items": [
+        {"name": "Steel Coil", "length": 1500, "width": 1500, "height": 800, "weight": 2000, "quantity": 5, "item_type": "metal"},
+        {"name": "Metal Parts", "length": 800, "width": 600, "height": 400, "weight": 500, "quantity": 15, "item_type": "metal"},
+        {"name": "Light Cargo", "length": 600, "width": 400, "height": 300, "weight": 20, "quantity": 50}
+      ],
+      "constraints": {
+        "weight_balance_tolerance": 0.15,
+        "heavy_items_bottom": true
+      },
+      "expected_results": {
+        "weight_balanced": true,
+        "cog_within_limits": true
+      }
+    },
+    {
+      "scenario_id": "SCEN-005",
+      "name": "Hazardous Materials Segregation",
+      "description": "Hazmat cargo requiring IMDG compliance segregation",
+      "difficulty": "hard",
+      "container": {
+        "type": "40ft_high_cube",
+        "length": 12032,
+        "width": 2352,
+        "height": 2698,
+        "max_weight": 26000
+      },
+      "items": [
+        {"name": "Flammable Liquid", "length": 600, "width": 400, "height": 400, "weight": 50, "quantity": 10, "hazard_class": "3", "storage_condition": "hazardous"},
+        {"name": "Oxidizer", "length": 600, "width": 400, "height": 400, "weight": 60, "quantity": 8, "hazard_class": "5.1", "storage_condition": "hazardous"},
+        {"name": "Corrosive", "length": 500, "width": 300, "height": 300, "weight": 40, "quantity": 12, "hazard_class": "8", "storage_condition": "hazardous"},
+        {"name": "General Cargo", "length": 800, "width": 600, "height": 500, "weight": 35, "quantity": 40}
+      ],
+      "constraints": {
+        "imdg_compliance": true,
+        "segregation_required": true
+      },
+      "expected_results": {
+        "imdg_violations": 0,
+        "segregation_maintained": true
+      }
+    },
+    {
+      "scenario_id": "SCEN-006",
+      "name": "Temperature Controlled Mixed Load",
+      "description": "Refrigerated and standard cargo in same container",
+      "difficulty": "hard",
+      "container": {
+        "type": "40ft_refrigerated",
+        "length": 11583,
+        "width": 2294,
+        "height": 2544,
+        "max_weight": 26000,
+        "temperature_range": {"min": -25, "max": 25}
+      },
+      "items": [
+        {"name": "Frozen Food", "length": 600, "width": 400, "height": 400, "weight": 30, "quantity": 30, "storage_condition": "frozen", "temperature_min": -25, "temperature_max": -18},
+        {"name": "Chilled Produce", "length": 500, "width": 400, "height": 300, "weight": 20, "quantity": 25, "storage_condition": "refrigerated", "temperature_min": 2, "temperature_max": 8},
+        {"name": "Ambient Goods", "length": 600, "width": 400, "height": 400, "weight": 25, "quantity": 20, "storage_condition": "standard"}
+      ],
+      "constraints": {
+        "temperature_zones": true,
+        "airflow_maintained": true
+      }
+    },
+    {
+      "scenario_id": "SCEN-007",
+      "name": "Maximum Utilization Challenge",
+      "description": "Optimized for maximum space utilization",
+      "difficulty": "expert",
+      "container": {
+        "type": "40ft_high_cube",
+        "length": 12032,
+        "width": 2352,
+        "height": 2698,
+        "max_weight": 26000
+      },
+      "items": [
+        {"name": "Type A", "length": 1200, "width": 800, "height": 800, "weight": 100, "quantity": 15},
+        {"name": "Type B", "length": 600, "width": 400, "height": 400, "weight": 30, "quantity": 60},
+        {"name": "Type C", "length": 400, "width": 300, "height": 300, "weight": 15, "quantity": 80},
+        {"name": "Type D", "length": 800, "width": 600, "height": 500, "weight": 45, "quantity": 25},
+        {"name": "Type E", "length": 1000, "width": 500, "height": 400, "weight": 55, "quantity": 20}
+      ],
+      "expected_results": {
+        "target_utilization": 90,
+        "challenge_rating": "expert"
+      }
+    },
+    {
+      "scenario_id": "SCEN-008",
+      "name": "Rotation Constraints",
+      "description": "Items with specific orientation requirements",
+      "difficulty": "medium",
+      "container": {
+        "type": "20ft_standard",
+        "length": 5898,
+        "width": 2352,
+        "height": 2393,
+        "max_weight": 28000
+      },
+      "items": [
+        {"name": "Upright Only", "length": 500, "width": 500, "height": 1200, "weight": 80, "quantity": 8, "keep_upright": true, "rotation_allowed": false},
+        {"name": "Any Orientation", "length": 600, "width": 400, "height": 400, "weight": 30, "quantity": 30, "rotation_allowed": true},
+        {"name": "Limited Rotation", "length": 800, "width": 600, "height": 400, "weight": 50, "quantity": 15, "keep_upright": true}
+      ],
+      "expected_results": {
+        "orientation_violations": 0
+      }
+    },
+    {
+      "scenario_id": "SCEN-009",
+      "name": "Stacking Weight Limits",
+      "description": "Items with specific stacking weight constraints",
+      "difficulty": "hard",
+      "container": {
+        "type": "40ft_standard",
+        "length": 12032,
+        "width": 2352,
+        "height": 2393,
+        "max_weight": 26000
+      },
+      "items": [
+        {"name": "Sturdy Base", "length": 1200, "width": 1000, "height": 400, "weight": 300, "quantity": 8, "stackable": true, "max_stack_weight": 1000},
+        {"name": "Medium Strength", "length": 800, "width": 600, "height": 400, "weight": 80, "quantity": 20, "stackable": true, "max_stack_weight": 200},
+        {"name": "Fragile Top", "length": 600, "width": 400, "height": 300, "weight": 25, "quantity": 40, "stackable": false, "fragile": true}
+      ],
+      "expected_results": {
+        "stack_violations": 0,
+        "support_adequate": true
+      }
+    },
+    {
+      "scenario_id": "SCEN-010",
+      "name": "E-Commerce Mixed Orders",
+      "description": "Realistic e-commerce fulfillment scenario with varied packages",
+      "difficulty": "medium",
+      "container": {
+        "type": "20ft_standard",
+        "length": 5898,
+        "width": 2352,
+        "height": 2393,
+        "max_weight": 28000
+      },
+      "items": [
+        {"name": "Small Parcel", "length": 200, "width": 150, "height": 100, "weight": 1, "quantity": 200},
+        {"name": "Medium Parcel", "length": 400, "width": 300, "height": 200, "weight": 5, "quantity": 100},
+        {"name": "Large Parcel", "length": 600, "width": 400, "height": 400, "weight": 15, "quantity": 50},
+        {"name": "Oversized", "length": 1000, "width": 600, "height": 500, "weight": 30, "quantity": 20},
+        {"name": "Fragile Electronics", "length": 300, "width": 200, "height": 150, "weight": 3, "quantity": 80, "fragile": true, "item_type": "electronics"}
+      ],
+      "expected_results": {
+        "all_items_packed": true,
+        "min_utilization": 70
+      }
     }
   ],
-  "test_cases": [
-    {
-      "name": "Weight Constraint Test",
-      "description": "Test that heavy containers are properly distributed",
-      "containers": [
-        {"id": "heavy1", "name": "Heavy Container 1", "weight": 900, "length": 1, "width": 1, "height": 1, "type": "box"},
-        {"id": "heavy2", "name": "Heavy Container 2", "weight": 900, "length": 1, "width": 1, "height": 1, "type": "box"}
-      ],
-      "vehicles": [
-        {"id": "test_truck", "type": "small_truck", "max_weight": 1000, "length": 3, "width": 2, "height": 2, "emission_factor": 0.00012}
-      ],
-      "expected_result": "should_use_two_vehicles"
-    }
-  ]
+  "benchmark_suites": {
+    "quick_test": ["SCEN-001", "SCEN-002"],
+    "full_validation": ["SCEN-001", "SCEN-002", "SCEN-003", "SCEN-004", "SCEN-005"],
+    "stress_test": ["SCEN-007", "SCEN-009"],
+    "compliance_test": ["SCEN-005", "SCEN-006"]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2025-01-15",
+    "total_scenarios": 10
+  }
 }

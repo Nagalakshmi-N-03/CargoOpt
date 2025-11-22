@@ -1,0 +1,192 @@
+{
+  "vessels": [
+    {
+      "vessel_id": "VSL-FEEDER-001",
+      "name": "Atlantic Feeder",
+      "vessel_type": "feeder",
+      "imo_number": "IMO9876543",
+      "flag": "Panama",
+      "dimensions": {
+        "length_overall_m": 135,
+        "beam_m": 23,
+        "depth_m": 11,
+        "draft_m": 8
+      },
+      "capacity": {
+        "teu_nominal": 1000,
+        "teu_max": 1100,
+        "deadweight_tons": 12500,
+        "gross_tonnage": 9500
+      },
+      "stowage": {
+        "bays": 12,
+        "rows": 6,
+        "tiers_above_deck": 3,
+        "tiers_below_deck": 4,
+        "reefer_plugs": 100,
+        "dangerous_goods_slots": 50
+      },
+      "performance": {
+        "max_speed_knots": 18,
+        "service_speed_knots": 15,
+        "fuel_consumption_tons_per_day": 25
+      },
+      "description": "Small feeder vessel for regional routes"
+    },
+    {
+      "vessel_id": "VSL-PANAMAX-001",
+      "name": "Pacific Trader",
+      "vessel_type": "panamax",
+      "imo_number": "IMO9234567",
+      "flag": "Liberia",
+      "dimensions": {
+        "length_overall_m": 294,
+        "beam_m": 32.2,
+        "depth_m": 21.5,
+        "draft_m": 12.5
+      },
+      "capacity": {
+        "teu_nominal": 5000,
+        "teu_max": 5500,
+        "deadweight_tons": 65000,
+        "gross_tonnage": 52000
+      },
+      "stowage": {
+        "bays": 20,
+        "rows": 13,
+        "tiers_above_deck": 6,
+        "tiers_below_deck": 8,
+        "reefer_plugs": 500,
+        "dangerous_goods_slots": 200
+      },
+      "performance": {
+        "max_speed_knots": 24,
+        "service_speed_knots": 21,
+        "fuel_consumption_tons_per_day": 120
+      },
+      "description": "Panamax vessel for transoceanic routes"
+    },
+    {
+      "vessel_id": "VSL-POSTPANAMAX-001",
+      "name": "Global Enterprise",
+      "vessel_type": "post_panamax",
+      "imo_number": "IMO9345678",
+      "flag": "Marshall Islands",
+      "dimensions": {
+        "length_overall_m": 366,
+        "beam_m": 48.2,
+        "depth_m": 27,
+        "draft_m": 15
+      },
+      "capacity": {
+        "teu_nominal": 12000,
+        "teu_max": 13500,
+        "deadweight_tons": 140000,
+        "gross_tonnage": 115000
+      },
+      "stowage": {
+        "bays": 24,
+        "rows": 22,
+        "tiers_above_deck": 8,
+        "tiers_below_deck": 10,
+        "reefer_plugs": 1000,
+        "dangerous_goods_slots": 500
+      },
+      "performance": {
+        "max_speed_knots": 25,
+        "service_speed_knots": 22,
+        "fuel_consumption_tons_per_day": 200
+      },
+      "description": "Post-Panamax vessel for major trade lanes"
+    },
+    {
+      "vessel_id": "VSL-NEWPANAMAX-001",
+      "name": "Ocean Giant",
+      "vessel_type": "new_panamax",
+      "imo_number": "IMO9456789",
+      "flag": "Singapore",
+      "dimensions": {
+        "length_overall_m": 366,
+        "beam_m": 49,
+        "depth_m": 29.5,
+        "draft_m": 15.2
+      },
+      "capacity": {
+        "teu_nominal": 14500,
+        "teu_max": 15500,
+        "deadweight_tons": 165000,
+        "gross_tonnage": 140000
+      },
+      "stowage": {
+        "bays": 24,
+        "rows": 23,
+        "tiers_above_deck": 9,
+        "tiers_below_deck": 11,
+        "reefer_plugs": 1500,
+        "dangerous_goods_slots": 750
+      },
+      "performance": {
+        "max_speed_knots": 24,
+        "service_speed_knots": 21,
+        "fuel_consumption_tons_per_day": 250
+      },
+      "description": "Neo-Panamax vessel optimized for expanded Panama Canal"
+    },
+    {
+      "vessel_id": "VSL-ULCV-001",
+      "name": "Mega Carrier",
+      "vessel_type": "ultra_large",
+      "imo_number": "IMO9567890",
+      "flag": "Hong Kong",
+      "dimensions": {
+        "length_overall_m": 400,
+        "beam_m": 59,
+        "depth_m": 33,
+        "draft_m": 16
+      },
+      "capacity": {
+        "teu_nominal": 21000,
+        "teu_max": 23000,
+        "deadweight_tons": 210000,
+        "gross_tonnage": 200000
+      },
+      "stowage": {
+        "bays": 28,
+        "rows": 24,
+        "tiers_above_deck": 11,
+        "tiers_below_deck": 12,
+        "reefer_plugs": 2200,
+        "dangerous_goods_slots": 1000
+      },
+      "performance": {
+        "max_speed_knots": 23,
+        "service_speed_knots": 19,
+        "fuel_consumption_tons_per_day": 300
+      },
+      "environmental": {
+        "scrubber_fitted": true,
+        "lng_capable": false,
+        "emission_tier": "Tier III"
+      },
+      "description": "Ultra Large Container Vessel for Asia-Europe routes"
+    }
+  ],
+  "bay_configurations": {
+    "standard_20ft_bay": {
+      "rows": [1, 2, 3, 4, 5, 6],
+      "tiers_below": [2, 4, 6, 8, 10, 12, 14, 16],
+      "tiers_above": [82, 84, 86, 88, 90, 92]
+    },
+    "standard_40ft_bay": {
+      "rows": [1, 2, 3, 4, 5, 6],
+      "tiers_below": [2, 4, 6, 8, 10, 12, 14, 16],
+      "tiers_above": [82, 84, 86, 88, 90, 92],
+      "note": "40ft containers span odd and even bays"
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2025-01-15",
+    "notes": "Representative vessel specifications for simulation"
+  }
+}

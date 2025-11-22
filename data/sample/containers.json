@@ -1,0 +1,288 @@
+{
+  "containers": [
+    {
+      "container_id": "CONT-20FT-STD-001",
+      "name": "20ft Standard Container",
+      "container_type": "standard",
+      "iso_code": "20GP",
+      "dimensions": {
+        "external": {
+          "length_mm": 6058,
+          "width_mm": 2438,
+          "height_mm": 2591
+        },
+        "internal": {
+          "length_mm": 5898,
+          "width_mm": 2352,
+          "height_mm": 2393
+        },
+        "door_opening": {
+          "width_mm": 2340,
+          "height_mm": 2280
+        }
+      },
+      "weight": {
+        "max_gross_kg": 30480,
+        "tare_kg": 2300,
+        "max_payload_kg": 28180
+      },
+      "volume": {
+        "capacity_m3": 33.2
+      },
+      "description": "Standard 20-foot dry cargo container"
+    },
+    {
+      "container_id": "CONT-40FT-STD-001",
+      "name": "40ft Standard Container",
+      "container_type": "standard",
+      "iso_code": "40GP",
+      "dimensions": {
+        "external": {
+          "length_mm": 12192,
+          "width_mm": 2438,
+          "height_mm": 2591
+        },
+        "internal": {
+          "length_mm": 12032,
+          "width_mm": 2352,
+          "height_mm": 2393
+        },
+        "door_opening": {
+          "width_mm": 2340,
+          "height_mm": 2280
+        }
+      },
+      "weight": {
+        "max_gross_kg": 30480,
+        "tare_kg": 3800,
+        "max_payload_kg": 26680
+      },
+      "volume": {
+        "capacity_m3": 67.7
+      },
+      "description": "Standard 40-foot dry cargo container"
+    },
+    {
+      "container_id": "CONT-40FT-HC-001",
+      "name": "40ft High Cube Container",
+      "container_type": "high_cube",
+      "iso_code": "40HC",
+      "dimensions": {
+        "external": {
+          "length_mm": 12192,
+          "width_mm": 2438,
+          "height_mm": 2896
+        },
+        "internal": {
+          "length_mm": 12032,
+          "width_mm": 2352,
+          "height_mm": 2698
+        },
+        "door_opening": {
+          "width_mm": 2340,
+          "height_mm": 2585
+        }
+      },
+      "weight": {
+        "max_gross_kg": 30480,
+        "tare_kg": 3920,
+        "max_payload_kg": 26560
+      },
+      "volume": {
+        "capacity_m3": 76.3
+      },
+      "description": "40-foot high cube container with extra height"
+    },
+    {
+      "container_id": "CONT-45FT-HC-001",
+      "name": "45ft High Cube Container",
+      "container_type": "high_cube",
+      "iso_code": "45HC",
+      "dimensions": {
+        "external": {
+          "length_mm": 13716,
+          "width_mm": 2438,
+          "height_mm": 2896
+        },
+        "internal": {
+          "length_mm": 13556,
+          "width_mm": 2352,
+          "height_mm": 2698
+        },
+        "door_opening": {
+          "width_mm": 2340,
+          "height_mm": 2585
+        }
+      },
+      "weight": {
+        "max_gross_kg": 32500,
+        "tare_kg": 4800,
+        "max_payload_kg": 27700
+      },
+      "volume": {
+        "capacity_m3": 86.0
+      },
+      "description": "45-foot high cube container for maximum volume"
+    },
+    {
+      "container_id": "CONT-20FT-RF-001",
+      "name": "20ft Refrigerated Container",
+      "container_type": "refrigerated",
+      "iso_code": "20RF",
+      "dimensions": {
+        "external": {
+          "length_mm": 6058,
+          "width_mm": 2438,
+          "height_mm": 2591
+        },
+        "internal": {
+          "length_mm": 5444,
+          "width_mm": 2294,
+          "height_mm": 2276
+        },
+        "door_opening": {
+          "width_mm": 2290,
+          "height_mm": 2210
+        }
+      },
+      "weight": {
+        "max_gross_kg": 30480,
+        "tare_kg": 3080,
+        "max_payload_kg": 27400
+      },
+      "volume": {
+        "capacity_m3": 28.4
+      },
+      "temperature_control": {
+        "min_celsius": -25,
+        "max_celsius": 25,
+        "power_requirement_kw": 4.5
+      },
+      "description": "20-foot refrigerated container for temperature-controlled cargo"
+    },
+    {
+      "container_id": "CONT-40FT-RF-001",
+      "name": "40ft Refrigerated Container",
+      "container_type": "refrigerated",
+      "iso_code": "40RF",
+      "dimensions": {
+        "external": {
+          "length_mm": 12192,
+          "width_mm": 2438,
+          "height_mm": 2591
+        },
+        "internal": {
+          "length_mm": 11583,
+          "width_mm": 2294,
+          "height_mm": 2544
+        },
+        "door_opening": {
+          "width_mm": 2290,
+          "height_mm": 2210
+        }
+      },
+      "weight": {
+        "max_gross_kg": 30480,
+        "tare_kg": 4800,
+        "max_payload_kg": 26960
+      },
+      "volume": {
+        "capacity_m3": 67.5
+      },
+      "temperature_control": {
+        "min_celsius": -25,
+        "max_celsius": 25,
+        "power_requirement_kw": 7.5
+      },
+      "description": "40-foot refrigerated container for temperature-controlled cargo"
+    },
+    {
+      "container_id": "CONT-20FT-OT-001",
+      "name": "20ft Open Top Container",
+      "container_type": "open_top",
+      "iso_code": "20OT",
+      "dimensions": {
+        "external": {
+          "length_mm": 6058,
+          "width_mm": 2438,
+          "height_mm": 2591
+        },
+        "internal": {
+          "length_mm": 5898,
+          "width_mm": 2352,
+          "height_mm": 2348
+        },
+        "roof_opening": {
+          "length_mm": 5486,
+          "width_mm": 2184
+        }
+      },
+      "weight": {
+        "max_gross_kg": 30480,
+        "tare_kg": 2400,
+        "max_payload_kg": 28080
+      },
+      "volume": {
+        "capacity_m3": 32.6
+      },
+      "description": "20-foot open top container for oversized cargo"
+    },
+    {
+      "container_id": "CONT-40FT-FR-001",
+      "name": "40ft Flat Rack Container",
+      "container_type": "flat_rack",
+      "iso_code": "40FR",
+      "dimensions": {
+        "external": {
+          "length_mm": 12192,
+          "width_mm": 2438,
+          "height_mm": 2591
+        },
+        "platform": {
+          "length_mm": 12080,
+          "width_mm": 2228
+        }
+      },
+      "weight": {
+        "max_gross_kg": 45000,
+        "tare_kg": 5000,
+        "max_payload_kg": 40000
+      },
+      "description": "40-foot flat rack for heavy and oversized cargo"
+    },
+    {
+      "container_id": "CONT-20FT-TK-001",
+      "name": "20ft Tank Container",
+      "container_type": "tank",
+      "iso_code": "20TK",
+      "dimensions": {
+        "external": {
+          "length_mm": 6058,
+          "width_mm": 2438,
+          "height_mm": 2591
+        },
+        "tank": {
+          "capacity_liters": 21000,
+          "diameter_mm": 2050
+        }
+      },
+      "weight": {
+        "max_gross_kg": 36000,
+        "tare_kg": 3070,
+        "max_payload_kg": 32930
+      },
+      "specifications": {
+        "material": "stainless_steel",
+        "pressure_rating_bar": 4,
+        "suitable_for": ["food_grade", "chemicals", "liquids"]
+      },
+      "description": "20-foot ISO tank container for liquid cargo"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2025-01-15",
+    "source": "ISO 668, ISO 1496 standards",
+    "notes": "Internal dimensions may vary by manufacturer"
+  }
+}

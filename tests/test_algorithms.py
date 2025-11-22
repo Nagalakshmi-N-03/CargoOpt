@@ -1,182 +1,408 @@
+"""
+Algorithm Tests
+Tests for optimization algorithms (Genetic Algorithm, Constraint Solver, Packing)
+"""
+
 import pytest
-import asyncio
-import json
-import os
-import sys
-from typing import Dict, List, Any
+from backend.algorithms.genetic_algorithm import GeneticAlgorithm, Individual, Population
+from backend.algorithms.constraint_solver import ConstraintSolver, Constraint
+from backend.algorithms.packing import PackingEngine, Placement, PackingHeuristic
 
-# Add backend to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from backend.algorithms.packing import PackingAlgorithm
-from backend.algorithms.genetic_algorithm import GeneticAlgorithm
-from backend.algorithms.stowage import StowageOptimizer
-from backend.services.validation import ValidationService
-from backend.models.stowage_plan import StowagePlan, ContainerAssignment, StowageStatus
+# ============================================================================
+# Genetic Algorithm Tests
+# ============================================================================
 
-class TestAlgorithms:
-    """Test cases for optimization algorithms"""
+@pytest.mark.algorithms
+@pytest.mark.unit
+class TestGeneticAlgorithm:
+    """Test genetic algorithm optimization."""
     
-    @classmethod
-    def setup_class(cls):
-        """Setup test data"""
-        cls.validation_service = ValidationService()
-        cls.packing_algo = PackingAlgorithm()
-        cls.genetic_algo = GeneticAlgorithm()
-        cls.stowage_algo = StowageOptimizer()
-        
-        # Load test data
-        test_data_path = os.path.join(os.path.dirname(__file__), 'test_data', 'test_containers.json')
-        with open(test_data_path, 'r') as f:
-            cls.test_data = json.load(f)
+    def test_ga_initialization(self, genetic_algorithm):
+        """Test GA initialization."""
+        assert genetic_algorithm.population_size > 0
+        assert genetic_algorithm.generations > 0
+        assert 0 < genetic_algorithm.mutation_rate < 1
+        assert 0 < genetic_algorithm.crossover_rate < 1
     
-    def test_packing_algorithm_basic(self):
-        """Test basic packing algorithm functionality"""
-        container = self.test_data['standard_containers'][0]
-        items = [item for item in self.test_data['test_items'] if item['id'] in [1, 4]]
-        
-        result = self.packing_algo.optimize(container, items)
-        
-        assert 'placements' in result
-        assert 'metrics' in result
-        assert result['metrics']['utilization_rate'] >= 0
-        assert result['metrics']['total_items_packed'] >= 0
-        
-        # Validate the result
-        validation = self.validation_service.validate_placement(container, result['placements'])
-        assert validation.is_valid, f"Placement validation failed: {validation.issues}"
-    
-    def test_genetic_algorithm_basic(self):
-        """Test genetic algorithm functionality"""
-        container = self.test_data['standard_containers'][1]
-        items = [item for item in self.test_data['test_items'] if item['id'] in [2, 3]]
-        
-        result = self.genetic_algo.optimize(container, items, generations=10)
-        
-        assert 'placements' in result
-        assert 'metrics' in result
-        assert result['metrics']['utilization_rate'] >= 0
-        assert result['metrics']['total_items_packed'] >= 0
-        
-        # Validate the result
-        validation = self.validation_service.validate_placement(container, result['placements'])
-        assert validation.is_valid, f"Placement validation failed: {validation.issues}"
-    
-    def test_stowage_algorithm_basic(self):
-        """Test stowage algorithm functionality"""
-        containers = self.test_data['standard_containers'][:2]  # Use first two containers
-        items = self.test_data['test_items'][:3]  # Use first three items
-        
-        result = self.stowage_algo.optimize(containers, items)
-        
-        assert 'container_assignments' in result
-        assert 'overall_metrics' in result
-        assert result['overall_metrics']['total_containers_used'] >= 0
-        assert result['overall_metrics']['total_items_packed'] >= 0
-        
-        # Validate each container assignment
-        for container_id, assignment in result['container_assignments'].items():
-            container_data = assignment['container']
-            placements = assignment.get('items', [])  # Note: stowage might not provide detailed placements
-            
-            if placements and isinstance(placements[0], dict) and 'position' in placements[0]:
-                validation = self.validation_service.validate_placement(container_data, placements)
-                assert validation.is_valid, f"Container {container_id} validation failed: {validation.issues}"
-    
-    def test_algorithm_comparison(self):
-        """Compare different algorithms on the same problem"""
-        container = self.test_data['standard_containers'][0]
-        items = [item for item in self.test_data['test_items'] if item['id'] in [1, 2]]
-        
-        # Run both algorithms
-        packing_result = self.packing_algo.optimize(container, items)
-        genetic_result = self.genetic_algo.optimize(container, items, generations=20)
-        
-        # Both should produce valid results
-        packing_validation = self.validation_service.validate_placement(container, packing_result['placements'])
-        genetic_validation = self.validation_service.validate_placement(container, genetic_result['placements'])
-        
-        assert packing_validation.is_valid, f"Packing algorithm failed: {packing_validation.issues}"
-        assert genetic_validation.is_valid, f"Genetic algorithm failed: {genetic_validation.issues}"
-        
-        # Both should pack at least some items
-        assert packing_result['metrics']['total_items_packed'] > 0
-        assert genetic_result['metrics']['total_items_packed'] > 0
-    
-    def test_empty_container(self):
-        """Test algorithm behavior with empty container"""
-        container = self.test_data['standard_containers'][0]
-        items = []  # No items
-        
-        result = self.packing_algo.optimize(container, items)
-        
-        assert result['metrics']['total_items_packed'] == 0
-        assert result['metrics']['utilization_rate'] == 0
-        assert len(result['placements']) == 0
-    
-    def test_single_item(self):
-        """Test algorithm with single item"""
-        container = self.test_data['standard_containers'][0]
-        items = [self.test_data['test_items'][0]]  # Single small box
-        
-        result = self.packing_algo.optimize(container, items)
-        
-        assert result['metrics']['total_items_packed'] == 1
-        assert result['metrics']['utilization_rate'] > 0
-        assert len(result['placements']) == 1
-        
-        # Validate placement
-        validation = self.validation_service.validate_placement(container, result['placements'])
-        assert validation.is_valid, f"Single item placement failed: {validation.issues}"
-    
-    @pytest.mark.asyncio
-    async def test_async_optimization(self):
-        """Test async optimization workflow"""
-        from backend.services.optimization import OptimizationService
-        
-        # Mock database session
-        class MockDB:
-            def query(self, *args, **kwargs):
-                return self
-            def filter(self, *args, **kwargs):
-                return self
-            def order_by(self, *args, **kwargs):
-                return self
-            def limit(self, *args, **kwargs):
-                return self
-            def all(self):
-                return []
-            def add(self, *args, **kwargs):
-                pass
-            def commit(self):
-                pass
-        
-        optimization_service = OptimizationService(MockDB())
-        
-        container = self.test_data['standard_containers'][0]
-        items = self.test_data['test_items'][:2]
-        
-        result = await optimization_service.optimize_single_container(
-            container_data=container,
-            items_data=items,
-            algorithm="packing"
+    def test_create_individual(self, genetic_algorithm):
+        """Test individual creation."""
+        n_items = len(genetic_algorithm.items)
+        individual = Individual(
+            sequence=list(range(n_items)),
+            orientations=[0] * n_items
         )
         
-        assert result['success'] == True
-        assert 'result' in result
-        assert result['result']['metrics']['total_items_packed'] >= 0
+        assert len(individual.sequence) == n_items
+        assert len(individual.orientations) == n_items
+        assert individual.fitness == 0.0
     
-    def test_stowage_plan_model(self):
-        """Test StowagePlan model functionality"""
-        from datetime import datetime
+    def test_initialize_population(self, genetic_algorithm):
+        """Test population initialization."""
+        population = genetic_algorithm._initialize_population()
         
-        # Create a mock container assignment
-        container_assignment = ContainerAssignment(
-            container_id="test_container_1",
-            container_data=self.test_data['standard_containers'][0],
-            items=self.test_data['test_items'][:2],
-            placements=[],
-            utilization_rate=0.75,
-            weight_utilization=0.6,
-            status="fully_loaded",
-            total_volume_used=1000.0,
+        assert len(population.individuals) == genetic_algorithm.population_size
+        assert population.generation == 0
+        
+        # Check diversity - sequences should be different
+        sequences = [tuple(ind.sequence) for ind in population.individuals]
+        assert len(set(sequences)) > 1
+    
+    def test_evaluate_individual(self, genetic_algorithm):
+        """Test individual fitness evaluation."""
+        individual = Individual(
+            sequence=list(range(len(genetic_algorithm.items))),
+            orientations=[0] * len(genetic_algorithm.items)
+        )
+        
+        genetic_algorithm._evaluate_individual(individual)
+        
+        assert 0 <= individual.fitness <= 1
+        assert len(individual.placements) >= 0
+    
+    def test_crossover(self, genetic_algorithm):
+        """Test crossover operation."""
+        n_items = len(genetic_algorithm.items)
+        parent1 = Individual(
+            sequence=list(range(n_items)),
+            orientations=[0] * n_items
+        )
+        parent2 = Individual(
+            sequence=list(reversed(range(n_items))),
+            orientations=[1] * n_items
+        )
+        
+        child1, child2 = genetic_algorithm._crossover(parent1, parent2)
+        
+        # Children should have valid sequences
+        assert len(child1.sequence) == n_items
+        assert len(child2.sequence) == n_items
+        assert set(child1.sequence) == set(range(n_items))
+        assert set(child2.sequence) == set(range(n_items))
+    
+    def test_mutation(self, genetic_algorithm):
+        """Test mutation operation."""
+        n_items = len(genetic_algorithm.items)
+        individual = Individual(
+            sequence=list(range(n_items)),
+            orientations=[0] * n_items
+        )
+        original_sequence = individual.sequence.copy()
+        
+        genetic_algorithm._mutate(individual)
+        
+        # Sequence should still be valid
+        assert len(individual.sequence) == n_items
+        assert set(individual.sequence) == set(range(n_items))
+    
+    @pytest.mark.slow
+    def test_ga_optimization_run(self, genetic_algorithm):
+        """Test complete GA optimization run."""
+        result = genetic_algorithm.run(max_time=10)
+        
+        assert result['status'] == 'completed'
+        assert 'utilization' in result
+        assert 'placements' in result
+        assert result['items_packed'] <= result['items_unpacked'] + len(genetic_algorithm.items)
+
+
+# ============================================================================
+# Constraint Solver Tests
+# ============================================================================
+
+@pytest.mark.algorithms
+@pytest.mark.unit
+class TestConstraintSolver:
+    """Test constraint programming solver."""
+    
+    def test_cs_initialization(self, constraint_solver):
+        """Test constraint solver initialization."""
+        assert len(constraint_solver.hard_constraints) > 0
+        assert len(constraint_solver.soft_constraints) >= 0
+        assert len(constraint_solver.items) > 0
+    
+    def test_within_container_constraint(self, constraint_solver):
+        """Test within container constraint."""
+        placement = Placement(
+            item_index=0,
+            x=0,
+            y=0,
+            z=0,
+            length=1000,
+            width=800,
+            height=600,
+            weight=50
+        )
+        
+        result = constraint_solver._check_within_container(placement, [])
+        assert result is True
+        
+        # Test invalid placement
+        invalid_placement = Placement(
+            item_index=0,
+            x=constraint_solver.container['length'],  # Outside
+            y=0,
+            z=0,
+            length=1000,
+            width=800,
+            height=600,
+            weight=50
+        )
+        
+        result = constraint_solver._check_within_container(invalid_placement, [])
+        assert result is False
+    
+    def test_no_overlap_constraint(self, constraint_solver):
+        """Test no overlap constraint."""
+        placement1 = Placement(
+            item_index=0,
+            x=0,
+            y=0,
+            z=0,
+            length=1000,
+            width=800,
+            height=600,
+            weight=50
+        )
+        
+        # Non-overlapping placement
+        placement2 = Placement(
+            item_index=1,
+            x=1500,
+            y=0,
+            z=0,
+            length=1000,
+            width=800,
+            height=600,
+            weight=50
+        )
+        
+        result = constraint_solver._check_no_overlap(placement2, [placement1])
+        assert result is True
+        
+        # Overlapping placement
+        placement3 = Placement(
+            item_index=2,
+            x=500,  # Overlaps with placement1
+            y=0,
+            z=0,
+            length=1000,
+            width=800,
+            height=600,
+            weight=50
+        )
+        
+        result = constraint_solver._check_no_overlap(placement3, [placement1])
+        assert result is False
+    
+    def test_weight_limit_constraint(self, constraint_solver):
+        """Test weight limit constraint."""
+        placement = Placement(
+            item_index=0,
+            x=0,
+            y=0,
+            z=0,
+            length=1000,
+            width=800,
+            height=600,
+            weight=constraint_solver.container['max_weight'] - 100
+        )
+        
+        result = constraint_solver._check_weight_limit(placement, [])
+        assert result is True
+        
+        # Exceed weight limit
+        heavy_placement = Placement(
+            item_index=1,
+            x=0,
+            y=0,
+            z=0,
+            length=1000,
+            width=800,
+            height=600,
+            weight=constraint_solver.container['max_weight']
+        )
+        
+        result = constraint_solver._check_weight_limit(heavy_placement, [placement])
+        assert result is False
+    
+    @pytest.mark.slow
+    def test_solver_optimization(self, constraint_solver):
+        """Test constraint solver optimization."""
+        result = constraint_solver.solve(max_time=10)
+        
+        assert result['status'] == 'completed'
+        assert 'utilization' in result
+        assert 'placements' in result
+
+
+# ============================================================================
+# Packing Engine Tests
+# ============================================================================
+
+@pytest.mark.algorithms
+@pytest.mark.unit
+class TestPackingEngine:
+    """Test packing engine."""
+    
+    def test_packing_engine_initialization(self, packing_engine):
+        """Test packing engine initialization."""
+        assert packing_engine.container is not None
+        assert len(packing_engine.items) > 0
+        assert len(packing_engine.available_spaces) == 1
+    
+    def test_placement_creation(self, packing_engine):
+        """Test placement object creation."""
+        placement = Placement(
+            item_index=0,
+            x=0,
+            y=0,
+            z=0,
+            length=1000,
+            width=800,
+            height=600,
+            weight=50
+        )
+        
+        assert placement.x == 0
+        assert placement.volume == 1000 * 800 * 600
+        
+        # Test bounds
+        min_bound, max_bound = placement.get_bounds()
+        assert min_bound == (0, 0, 0)
+        assert max_bound == (1000, 800, 600)
+    
+    def test_placement_overlap_detection(self, packing_engine):
+        """Test overlap detection."""
+        placement1 = Placement(
+            item_index=0,
+            x=0,
+            y=0,
+            z=0,
+            length=1000,
+            width=800,
+            height=600,
+            weight=50
+        )
+        
+        # Non-overlapping
+        placement2 = Placement(
+            item_index=1,
+            x=2000,
+            y=0,
+            z=0,
+            length=1000,
+            width=800,
+            height=600,
+            weight=50
+        )
+        assert not placement1.overlaps(placement2)
+        
+        # Overlapping
+        placement3 = Placement(
+            item_index=2,
+            x=500,
+            y=400,
+            z=300,
+            length=1000,
+            width=800,
+            height=600,
+            weight=50
+        )
+        assert placement1.overlaps(placement3)
+    
+    def test_best_fit_heuristic(self, packing_engine):
+        """Test best-fit packing heuristic."""
+        sequence = list(range(len(packing_engine.items)))
+        orientations = [0] * len(packing_engine.items)
+        
+        result = packing_engine.pack(
+            sequence,
+            orientations,
+            heuristic=PackingHeuristic.BEST_FIT
+        )
+        
+        assert 'placements' in result
+        assert 'utilization' in result
+        assert result['utilization'] >= 0
+    
+    def test_bottom_left_heuristic(self, packing_engine):
+        """Test bottom-left packing heuristic."""
+        sequence = list(range(len(packing_engine.items)))
+        orientations = [0] * len(packing_engine.items)
+        
+        result = packing_engine.pack(
+            sequence,
+            orientations,
+            heuristic=PackingHeuristic.BOTTOM_LEFT
+        )
+        
+        assert 'placements' in result
+        # Bottom-left should place items low
+        if result['placements']:
+            assert all(p.z == 0 for p in result['placements'][:3])  # First few on floor
+    
+    def test_utilization_calculation(self, packing_engine):
+        """Test space utilization calculation."""
+        sequence = list(range(len(packing_engine.items)))
+        orientations = [0] * len(packing_engine.items)
+        
+        result = packing_engine.pack(sequence, orientations)
+        
+        utilization = result['utilization']
+        assert 0 <= utilization <= 100
+    
+    def test_rotation_handling(self, packing_engine):
+        """Test item rotation."""
+        item = packing_engine.items[0]
+        
+        # Get dimensions for different orientations
+        dims0 = packing_engine._get_rotated_dimensions(item, 0)
+        dims1 = packing_engine._get_rotated_dimensions(item, 1)
+        
+        # Dimensions should change with rotation
+        assert dims0 != dims1 or item.get('rotation_allowed') is False
+
+
+# ============================================================================
+# Integration Tests
+# ============================================================================
+
+@pytest.mark.algorithms
+@pytest.mark.integration
+class TestAlgorithmIntegration:
+    """Integration tests for algorithms."""
+    
+    def test_ga_vs_cs_comparison(self, sample_container, sample_items, test_config):
+        """Compare GA and CS results."""
+        ga = GeneticAlgorithm(sample_container, sample_items, test_config)
+        cs = ConstraintSolver(sample_container, sample_items, test_config)
+        
+        ga_result = ga.run(max_time=5)
+        cs_result = cs.solve(max_time=5)
+        
+        # Both should produce valid results
+        assert ga_result['status'] == 'completed'
+        assert cs_result['status'] == 'completed'
+        
+        # Both should pack some items
+        assert ga_result['items_packed'] > 0
+        assert cs_result['items_packed'] > 0
+    
+    @pytest.mark.slow
+    def test_heavy_load_optimization(self, sample_container, sample_heavy_items, test_config):
+        """Test optimization with heavy items."""
+        ga = GeneticAlgorithm(sample_container, sample_heavy_items, test_config)
+        
+        result = ga.run(max_time=10)
+        
+        # Should handle weight constraints
+        assert result['is_valid'] or len(result['violations']) > 0
+        
+        # Heavy items should be placed low if packed
+        if result['placements']:
+            heavy_placements = [p for p in result['placements']]
+            if heavy_placements:
+                avg_z = sum(p.z for p in heavy_placements) / len(heavy_placements)
+                container_height = sample_container['height']
+                assert avg_z < container_height * 0.5  # Below mid-height

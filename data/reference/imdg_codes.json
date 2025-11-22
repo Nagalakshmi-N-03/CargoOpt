@@ -1,109 +1,234 @@
 {
-  "imdg_classes": [
-    {
-      "class": "1",
+  "imdg_code_version": "41-22",
+  "effective_date": "2024-01-01",
+  "hazard_classes": {
+    "1": {
       "name": "Explosives",
-      "description": "Substances and articles which have a mass explosion hazard",
-      "segregation_group": "A",
-      "compatibility_notes": "Keep away from heat and sources of ignition",
-      "storage_requirements": ["On deck only", "Away from living quarters"],
-      "emergency_procedures": "Use copious amounts of water"
-    },
-    {
-      "class": "2",
-      "name": "Gases",
-      "description": "Compressed, liquefied or dissolved under pressure gases",
-      "subclasses": ["2.1", "2.2", "2.3"],
-      "segregation_rules": {
-        "2.1": "Flammable gases - separate from oxidizers",
-        "2.2": "Non-flammable gases - general storage",
-        "2.3": "Toxic gases - special ventilation required"
+      "divisions": {
+        "1.1": "Mass explosion hazard",
+        "1.2": "Projection hazard",
+        "1.3": "Fire hazard with minor blast/projection",
+        "1.4": "No significant hazard",
+        "1.5": "Very insensitive with mass explosion hazard",
+        "1.6": "Extremely insensitive"
       },
-      "storage_requirements": ["Well ventilated areas", "Upright position"],
-      "emergency_procedures": "Evacuate area, use appropriate PPE"
+      "label_color": "orange",
+      "placard_required": true,
+      "stowage_category": "01"
     },
-    {
-      "class": "3",
-      "name": "Flammable Liquids",
-      "description": "Liquids which give off flammable vapors at or below 60°C",
-      "segregation_group": "C",
-      "flash_point_ranges": {
-        "low": "< 23°C",
-        "medium": "23°C - 60°C",
-        "high": "> 60°C"
-      },
-      "storage_requirements": ["Cool, ventilated areas", "Away from ignition sources"],
-      "emergency_procedures": "Use foam, CO2, or dry chemical extinguishers"
+    "2.1": {
+      "name": "Flammable Gas",
+      "description": "Gases which are ignitable when in mixture with air",
+      "label_color": "red",
+      "placard_required": true,
+      "stowage_category": "D"
     },
-    {
-      "class": "4",
-      "name": "Flammable Solids",
-      "description": "Solids which are readily combustible or may cause fire",
-      "subclasses": ["4.1", "4.2", "4.3"],
-      "segregation_rules": {
-        "4.1": "Separate from oxidizing substances",
-        "4.2": "Keep dry and away from moisture",
-        "4.3": "Separate from water-reactive substances"
-      },
-      "storage_requirements": ["Dry conditions", "Cool environment"],
-      "emergency_procedures": "Use dry sand or special extinguishing agents"
+    "2.2": {
+      "name": "Non-Flammable, Non-Toxic Gas",
+      "description": "Gases which are asphyxiant or oxidizing",
+      "label_color": "green",
+      "placard_required": true,
+      "stowage_category": "A"
     },
-    {
-      "class": "5",
+    "2.3": {
+      "name": "Toxic Gas",
+      "description": "Gases known to be toxic or corrosive to humans",
+      "label_color": "white",
+      "placard_required": true,
+      "stowage_category": "D"
+    },
+    "3": {
+      "name": "Flammable Liquid",
+      "description": "Liquids with flash point <= 60°C",
+      "packing_groups": ["I", "II", "III"],
+      "label_color": "red",
+      "placard_required": true,
+      "stowage_category": "B"
+    },
+    "4.1": {
+      "name": "Flammable Solid",
+      "description": "Solids readily combustible or may cause fire through friction",
+      "label_color": "red_white_stripes",
+      "placard_required": true,
+      "stowage_category": "A"
+    },
+    "4.2": {
+      "name": "Spontaneously Combustible",
+      "description": "Substances liable to spontaneous heating or ignition",
+      "label_color": "red_white_half",
+      "placard_required": true,
+      "stowage_category": "D"
+    },
+    "4.3": {
+      "name": "Dangerous When Wet",
+      "description": "Substances which emit flammable gases when wet",
+      "label_color": "blue",
+      "placard_required": true,
+      "stowage_category": "E"
+    },
+    "5.1": {
       "name": "Oxidizing Substances",
       "description": "Substances which may cause or contribute to combustion",
-      "subclasses": ["5.1", "5.2"],
-      "segregation_group": "D",
-      "compatibility_notes": "Separate from flammable materials",
-      "storage_requirements": ["Cool, well-ventilated areas", "Away from combustibles"],
-      "emergency_procedures": "Use large quantities of water"
+      "label_color": "yellow",
+      "placard_required": true,
+      "stowage_category": "B"
     },
-    {
-      "class": "6",
-      "name": "Toxic and Infectious Substances",
-      "description": "Substances liable to cause death or injury if inhaled, swallowed, or contact with skin",
-      "subclasses": ["6.1", "6.2"],
-      "storage_requirements": ["Secure storage", "Proper labeling", "Away from foodstuffs"],
-      "emergency_procedures": "Use appropriate PPE, evacuate area"
+    "5.2": {
+      "name": "Organic Peroxides",
+      "description": "Organic substances with O-O structure",
+      "label_color": "red_yellow",
+      "placard_required": true,
+      "stowage_category": "D"
     },
-    {
-      "class": "7",
+    "6.1": {
+      "name": "Toxic Substances",
+      "description": "Substances liable to cause death or serious injury",
+      "packing_groups": ["I", "II", "III"],
+      "label_color": "white",
+      "placard_required": true,
+      "stowage_category": "A"
+    },
+    "6.2": {
+      "name": "Infectious Substances",
+      "description": "Substances containing viable micro-organisms",
+      "categories": ["Category A", "Category B"],
+      "label_color": "white",
+      "placard_required": true,
+      "stowage_category": "A"
+    },
+    "7": {
       "name": "Radioactive Material",
-      "description": "Materials emitting ionizing radiation",
-      "segregation_group": "F",
-      "storage_requirements": ["Special containers", "Radiation monitoring", "Isolated storage"],
-      "emergency_procedures": "Evacuate area, contact radiation safety officer"
+      "categories": ["I-WHITE", "II-YELLOW", "III-YELLOW"],
+      "label_color": "yellow_white",
+      "placard_required": true,
+      "stowage_category": "A",
+      "special_provisions": "Separate stowage required"
     },
-    {
-      "class": "8",
+    "8": {
       "name": "Corrosive Substances",
-      "description": "Substances which may cause damage to living tissue or other materials",
-      "segregation_group": "E",
-      "storage_requirements": ["Corrosion-resistant containers", "Good ventilation"],
-      "emergency_procedures": "Use copious amounts of water, neutralizers"
+      "description": "Substances causing destruction of living tissue or materials",
+      "packing_groups": ["I", "II", "III"],
+      "label_color": "black_white",
+      "placard_required": true,
+      "stowage_category": "A"
     },
-    {
-      "class": "9",
+    "9": {
       "name": "Miscellaneous Dangerous Goods",
-      "description": "Substances presenting dangers not covered by other classes",
-      "segregation_group": "G",
-      "storage_requirements": ["As specified for specific materials"],
-      "emergency_procedures": "Follow specific material guidelines"
+      "description": "Substances presenting a danger not covered by other classes",
+      "includes": ["Environmentally hazardous", "Elevated temperature", "Lithium batteries"],
+      "label_color": "white_black_stripes",
+      "placard_required": true,
+      "stowage_category": "A"
     }
-  ],
-  "segregation_table": {
-    "A": ["Incompatible with A, B, C", "Safe with D, E, F, G"],
-    "B": ["Incompatible with A, B", "Safe with C, D, E, F, G"],
-    "C": ["Incompatible with A", "Safe with B, D, E, F, G"],
-    "D": ["Incompatible with E", "Safe with A, B, C, F, G"],
-    "E": ["Incompatible with D", "Safe with A, B, C, F, G"],
-    "F": ["No major incompatibilities", "Safe with all groups"],
-    "G": ["No major incompatibilities", "Safe with all groups"]
   },
-  "container_requirements": {
-    "ventilated": ["Class 2", "Class 3", "Class 8"],
-    "refrigerated": ["Class 4.2", "Class 5.2", "Class 7 (some)"],
-    "special_handling": ["Class 1", "Class 6", "Class 7"],
-    "on_deck_only": ["Class 1", "Class 2.3", "Class 7 (high radiation)"]
+  "segregation_table": {
+    "description": "Segregation requirements between incompatible classes",
+    "legend": {
+      "1": "Away from",
+      "2": "Separated from",
+      "3": "Separated by complete compartment",
+      "4": "Separated longitudinally by complete compartment",
+      "X": "See specific requirements"
+    },
+    "matrix": {
+      "1.1-1.2": {"2.1": 4, "2.3": 4, "3": 4, "4.1": 4, "4.2": 4, "4.3": 4, "5.1": 4, "5.2": 4, "6.1": 2, "7": 2, "8": 4},
+      "1.3-1.6": {"2.1": 3, "2.3": 3, "3": 3, "4.1": 2, "4.2": 3, "4.3": 3, "5.1": 3, "5.2": 3, "6.1": 2, "7": 2, "8": 2},
+      "2.1": {"1.1-1.2": 4, "3": 2, "4.1": 2, "4.2": 3, "4.3": 2, "5.1": 2, "5.2": 3, "8": 1},
+      "2.2": {},
+      "2.3": {"1.1-1.2": 4, "3": 2, "4.1": 2, "4.2": 2, "4.3": 2, "5.1": 2, "5.2": 2, "6.1": 1, "8": 2},
+      "3": {"1.1-1.2": 4, "2.1": 2, "2.3": 2, "4.1": "X", "5.1": 2, "5.2": 2},
+      "4.1": {"1.1-1.2": 4, "2.1": 2, "2.3": 2, "5.1": 2, "5.2": 2, "7": 1},
+      "4.2": {"1.1-1.2": 4, "2.1": 3, "2.3": 2, "5.1": 3, "5.2": 3, "8": 2},
+      "4.3": {"1.1-1.2": 4, "2.1": 2, "2.3": 2, "3": 2, "5.1": 3, "5.2": 3, "8": 2},
+      "5.1": {"1.1-1.2": 4, "2.1": 2, "2.3": 2, "3": 2, "4.1": 2, "4.2": 3, "4.3": 3, "5.2": 2, "8": 2},
+      "5.2": {"1.1-1.2": 4, "2.1": 3, "2.3": 2, "3": 2, "4.1": 2, "4.2": 3, "4.3": 3, "5.1": 2},
+      "6.1": {"1.1-1.2": 2, "2.3": 1, "3": "X", "8": 1},
+      "6.2": {},
+      "7": {"1.1-1.2": 2, "4.1": 1, "8": 1},
+      "8": {"1.1-1.2": 4, "2.1": 1, "2.3": 2, "4.2": 2, "4.3": 2, "5.1": 2, "6.1": 1, "7": 1}
+    }
+  },
+  "segregation_distances": {
+    "1_away_from": {
+      "horizontal_m": 3,
+      "description": "At least 3 meters apart horizontally"
+    },
+    "2_separated_from": {
+      "horizontal_m": 6,
+      "fore_aft_holds": 1,
+      "description": "Separated by one intervening hold or compartment"
+    },
+    "3_separated_by_compartment": {
+      "horizontal_m": 12,
+      "fore_aft_holds": 2,
+      "description": "Separated by two intervening holds or compartments"
+    },
+    "4_separated_longitudinally": {
+      "horizontal_m": 24,
+      "fore_aft_holds": 3,
+      "description": "Fore and aft separated by at least 24m"
+    }
+  },
+  "stowage_categories": {
+    "A": {
+      "on_deck": "permitted",
+      "under_deck": "permitted",
+      "description": "No special requirements"
+    },
+    "B": {
+      "on_deck": "permitted",
+      "under_deck": "permitted",
+      "description": "Clear of living quarters"
+    },
+    "C": {
+      "on_deck": "permitted",
+      "under_deck": "permitted",
+      "description": "Clear of living quarters, away from heat sources"
+    },
+    "D": {
+      "on_deck": "permitted",
+      "under_deck": "prohibited",
+      "description": "On deck only, protected from sources of heat"
+    },
+    "E": {
+      "on_deck": "permitted",
+      "under_deck": "permitted",
+      "description": "On deck or under deck, but not in enclosed cargo spaces"
+    }
+  },
+  "packing_groups": {
+    "I": {
+      "name": "High Danger",
+      "description": "Substances presenting high danger"
+    },
+    "II": {
+      "name": "Medium Danger",
+      "description": "Substances presenting medium danger"
+    },
+    "III": {
+      "name": "Low Danger",
+      "description": "Substances presenting low danger"
+    }
+  },
+  "special_provisions": {
+    "marine_pollutant": {
+      "marking": "Required",
+      "documentation": "Must be declared on shipping documents",
+      "stowage": "Protect from damage, away from ship's side"
+    },
+    "limited_quantities": {
+      "description": "Small quantities exempt from some requirements",
+      "marking": "LQ mark required",
+      "documentation": "Simplified documentation"
+    },
+    "excepted_quantities": {
+      "description": "Very small quantities with minimal requirements",
+      "marking": "EQ mark required"
+    }
+  },
+  "metadata": {
+    "source": "IMO International Maritime Dangerous Goods Code",
+    "version": "Amendment 41-22",
+    "disclaimer": "Reference only. Consult official IMDG Code for compliance."
   }
 }

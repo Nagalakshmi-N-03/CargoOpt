@@ -1,98 +1,220 @@
 {
-  "vessel_stability_parameters": {
-    "max_heeling_angle": 12.0,
-    "min_metacentric_height": 0.15,
-    "max_metacentric_height": 2.0,
-    "free_surface_effect_limit": 0.05,
-    "allowable_stress_limits": {
-      "hogging": 0.85,
-      "sagging": 0.90,
-      "torsional": 0.75
+  "stability_rules_version": "1.0.0",
+  "container_packing_rules": {
+    "weight_distribution": {
+      "longitudinal_balance": {
+        "description": "Weight distribution along container length",
+        "cog_tolerance_percent": 10,
+        "cog_from_center_max_mm": 600,
+        "heavy_items_position": "center_preferred",
+        "rules": [
+          "Center of gravity should be within 10% of container center",
+          "Avoid concentrating weight at one end",
+          "Heavy items should be distributed evenly"
+        ]
+      },
+      "lateral_balance": {
+        "description": "Weight distribution across container width",
+        "cog_tolerance_percent": 5,
+        "cog_from_center_max_mm": 100,
+        "rules": [
+          "Weight should be balanced left to right",
+          "Lateral offset must not exceed 100mm from centerline"
+        ]
+      },
+      "vertical_distribution": {
+        "description": "Weight distribution from bottom to top",
+        "cog_height_max_percent": 50,
+        "heavy_bottom_required": true,
+        "rules": [
+          "Center of gravity should be in lower half of container",
+          "Heavy items must be placed at bottom",
+          "Never place heavy items on top of lighter items"
+        ]
+      }
+    },
+    "stacking_rules": {
+      "support_requirements": {
+        "min_support_percent": 60,
+        "edge_support_required": true,
+        "corner_support_preferred": true,
+        "description": "Items must have adequate support from below"
+      },
+      "weight_limits": {
+        "default_stack_weight_kg": 500,
+        "max_stack_height_ratio": 3,
+        "description": "Maximum weight that can be placed on an item"
+      },
+      "fragile_items": {
+        "stack_on_top": true,
+        "max_weight_above_kg": 0,
+        "padding_required": true
+      },
+      "orientation": {
+        "arrows_up": "Must be followed for items marked with orientation arrows",
+        "keep_upright": "Items must maintain vertical orientation"
+      }
+    },
+    "securing_requirements": {
+      "void_filling": {
+        "max_void_dimension_mm": 150,
+        "filling_materials": ["airbags", "foam", "cardboard", "timber"],
+        "description": "Voids must be filled to prevent cargo shift"
+      },
+      "blocking_bracing": {
+        "required_for": ["heavy_items", "cylindrical", "irregular_shape"],
+        "methods": ["timber_blocking", "strapping", "lashing"]
+      },
+      "lashing_requirements": {
+        "light_cargo_kg": 0,
+        "medium_cargo_kg": 500,
+        "heavy_cargo_kg": 1000,
+        "very_heavy_cargo_kg": 5000
+      }
     }
   },
-  "loading_sequences": {
-    "even_distribution": {
-      "description": "Load evenly from center outward",
-      "priority": "high",
-      "rules": ["Start from centerline", "Work outward symmetrically", "Maintain even keel"]
+  "vessel_stability_rules": {
+    "metacentric_height": {
+      "description": "GM - distance between center of gravity and metacenter",
+      "min_gm_m": 0.15,
+      "recommended_gm_m": 0.5,
+      "max_gm_m": 2.0,
+      "rules": [
+        "GM must be positive for stability",
+        "Too high GM causes excessive rolling (stiff ship)",
+        "Too low GM risks capsizing (tender ship)"
+      ]
     },
-    "heavy_lifts": {
-      "description": "Special rules for heavy containers",
-      "priority": "medium",
-      "rules": ["Place heavy containers low", "Distribute heavy weights evenly", "Avoid concentration in ends"]
+    "heel_angle_limits": {
+      "max_initial_heel_degrees": 5,
+      "max_heel_during_loading_degrees": 3,
+      "max_list_at_sea_degrees": 2
     },
-    "dangerous_goods": {
-      "description": "Loading rules for hazardous materials",
-      "priority": "high",
-      "rules": ["Follow IMDG segregation", "Accessible locations", "Proper ventilation"]
+    "trim_requirements": {
+      "max_trim_percent_lpp": 0.5,
+      "preferred_trim": "slight_stern",
+      "even_keel_tolerance_m": 0.5
+    },
+    "weight_tier_rules": {
+      "tier_weight_limits": {
+        "below_deck": {
+          "bottom_tiers": "heaviest",
+          "top_tiers": "medium_to_light"
+        },
+        "above_deck": {
+          "bottom_tiers": "medium",
+          "top_tiers": "lightest"
+        }
+      },
+      "stack_weight_limits": {
+        "below_deck_kg_per_teu": 30000,
+        "above_deck_kg_per_teu": 20000,
+        "top_tier_max_kg": 10000
+      },
+      "bay_weight_limits": {
+        "forward_bays": "lighter_preferred",
+        "midship_bays": "heaviest_allowed",
+        "aft_bays": "medium_weight"
+      }
+    },
+    "loading_sequence": {
+      "principles": [
+        "Load from bottom up",
+        "Maintain even distribution during loading",
+        "Check stability at each stage",
+        "Heavy containers before light containers on same tier",
+        "Keep vessel upright during operations"
+      ],
+      "discharge_sequence": [
+        "Discharge from top down",
+        "Maintain stability throughout",
+        "Balance port and starboard operations"
+      ]
     }
   },
-  "weight_distribution_rules": {
-    "vertical_center_of_gravity": {
-      "max_height_ratio": 0.65,
-      "optimal_range": "0.55-0.60",
-      "calculation_method": "weighted_average"
+  "safety_factors": {
+    "container_rating": {
+      "iso_stack_weight_kg": 192000,
+      "practical_limit_percent": 80,
+      "sea_motion_factor": 1.8,
+      "acceleration_factor": {
+        "vertical": 1.5,
+        "transverse": 0.8,
+        "longitudinal": 0.4
+      }
     },
-    "longitudinal_balance": {
-      "max_trim_angle": 2.0,
-      "optimal_trim": "0.5-1.0 degrees by stern",
-      "corrective_actions": ["Ballast adjustment", "Container redistribution"]
-    },
-    "transverse_stability": {
-      "max_list_angle": 1.0,
-      "corrective_threshold": 0.5,
-      "monitoring_requirements": ["Continuous during loading", "After each tier"]
+    "lashing_strength": {
+      "safety_factor": 2.0,
+      "allowable_load_percent": 50,
+      "dynamic_factor": 1.5
     }
   },
-  "container_stack_limits": {
-    "standard_containers": {
-      "max_tiers_on_deck": 5,
-      "max_tiers_in_hold": 7,
-      "max_weight_per_tier": 120000,
-      "stack_weight_distribution": "pyramid"
+  "stability_checks": {
+    "pre_loading": [
+      "Verify container weights",
+      "Plan weight distribution",
+      "Calculate expected GM",
+      "Check trim predictions"
+    ],
+    "during_loading": [
+      "Monitor heel and trim",
+      "Verify actual vs planned weights",
+      "Check for damage or leaks",
+      "Maintain even loading pattern"
+    ],
+    "post_loading": [
+      "Final GM calculation",
+      "Verify all lashings secure",
+      "Complete cargo plan documentation",
+      "Captain's approval"
+    ],
+    "departure_checks": [
+      "Stability booklet compliance",
+      "Cargo securing manual compliance",
+      "All hatch covers secured",
+      "Lashing gear tensioned"
+    ]
+  },
+  "compliance_standards": {
+    "solas": {
+      "chapter": "VI",
+      "requirement": "Cargo stowage and securing",
+      "verification": "Flag state approved cargo securing manual"
     },
-    "heavy_containers": {
-      "max_tiers": 3,
-      "min_strength_requirement": "high",
-      "location_preference": "lower stacks"
+    "css_code": {
+      "name": "Code of Safe Practice for Cargo Stowage and Securing",
+      "sections": ["Annex 12 - Safe stowage of containers", "Annex 13 - Methods of assessment"]
     },
-    "reefer_containers": {
-      "power_requirements": "dedicated circuits",
-      "ventilation_clearance": 0.3,
-      "monitoring_access": "required"
+    "csc": {
+      "name": "International Convention for Safe Containers",
+      "requirements": ["Valid CSC plate", "Periodic examination"]
+    },
+    "ctU_code": {
+      "name": "IMO/ILO/UNECE Code of Practice for Packing of Cargo Transport Units",
+      "scope": "Packing of containers, vehicles, railway wagons"
     }
   },
-  "environmental_factors": {
-    "wind_considerations": {
-      "max_wind_speed_loading": 25,
-      "stack_windage_calculation": "included",
-      "secure_before_storm": true
+  "warning_thresholds": {
+    "weight_imbalance": {
+      "warning_percent": 5,
+      "critical_percent": 10
     },
-    "sea_state_limits": {
-      "max_wave_height_loading": 2.0,
-      "motion_compensation": "required above 1.5m",
-      "dynamic_loading_factors": "applied"
+    "cog_offset": {
+      "warning_mm": 300,
+      "critical_mm": 600
     },
-    "temperature_effects": {
-      "material_expansion": "considered",
-      "lashing_tension_adjustment": "temperature_corrected"
+    "stack_weight_exceeded": {
+      "warning_percent": 80,
+      "critical_percent": 100
+    },
+    "support_insufficient": {
+      "warning_percent": 70,
+      "critical_percent": 60
     }
   },
-  "safety_margins": {
-    "structural_limits": {
-      "hull_girder_strength": 0.85,
-      "local_patch_loading": 0.80,
-      "corrosion_allowance": 0.10
-    },
-    "operational_limits": {
-      "maximum_deadweight": 0.95,
-      "minimum_stability": 1.25,
-      "reserve_buoyancy": 1.10
-    },
-    "emergency_scenarios": {
-      "damage_stability": "two_compartment_standard",
-      "floodable_length": "compliant",
-      "freeboard_requirements": "met"
-    }
+  "metadata": {
+    "source": "IMO, SOLAS, CSS Code, Industry Best Practices",
+    "version": "1.0.0",
+    "disclaimer": "Reference guide. Consult applicable regulations for compliance."
   }
 }
