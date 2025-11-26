@@ -10,16 +10,7 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from backend.main import create_app
-from backend.config.database import get_db_manager
-from backend.models.base import Base
 import logging
-
-# Import all models to register them with Base
-from backend.models.db_models import (
-    ContainerDB, ItemDB, VesselDB, StowagePlanDB, 
-    StowagePositionDB, UserDB, OptimizationRunDB
-)
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +19,24 @@ def init_database():
     """Initialize the database with all tables"""
     print("\nCreating database...")
     try:
+        from backend.main import create_app
+        from backend.models.base import Base
+        
+        # Import all models to register them with Base
+        from backend.models.db_models import (
+            ContainerDB, ItemDB, VesselDB, StowagePlanDB, 
+            StowagePositionDB, UserDB, OptimizationRunDB
+        )
+        
         app = create_app()
         with app.app_context():
-            db_manager = get_db_manager()
+            # Get database manager from app
+            db_manager = app.config.get('db_manager') or app.extensions.get('db_manager')
+            
+            if not db_manager:
+                # Fallback: create engine directly
+                from backend.config.database import DatabaseManager
+                db_manager = DatabaseManager()
             
             # Create all tables using SQLAlchemy Base metadata
             engine = db_manager.engine
@@ -67,9 +73,24 @@ def reset_database():
     
     print("\nResetting database...")
     try:
+        from backend.main import create_app
+        from backend.models.base import Base
+        
+        # Import all models
+        from backend.models.db_models import (
+            ContainerDB, ItemDB, VesselDB, StowagePlanDB, 
+            StowagePositionDB, UserDB, OptimizationRunDB
+        )
+        
         app = create_app()
         with app.app_context():
-            db_manager = get_db_manager()
+            # Get database manager
+            db_manager = app.config.get('db_manager') or app.extensions.get('db_manager')
+            
+            if not db_manager:
+                from backend.config.database import DatabaseManager
+                db_manager = DatabaseManager()
+            
             engine = db_manager.engine
             
             # Drop all tables
@@ -102,9 +123,16 @@ def test_connection():
     """Test database connection"""
     print("\nTesting database connection...")
     try:
+        from backend.main import create_app
+        
         app = create_app()
         with app.app_context():
-            db_manager = get_db_manager()
+            # Get database manager
+            db_manager = app.config.get('db_manager') or app.extensions.get('db_manager')
+            
+            if not db_manager:
+                from backend.config.database import DatabaseManager
+                db_manager = DatabaseManager()
             
             # Try a simple query
             with db_manager.get_session() as session:
@@ -144,9 +172,19 @@ def seed_sample_data():
     """Add sample data for testing"""
     print("\nAdding sample data...")
     try:
+        from backend.main import create_app
+        from backend.models.db_models import (
+            ContainerDB, VesselDB, ContainerTypeEnum, VesselTypeEnum
+        )
+        
         app = create_app()
         with app.app_context():
-            db_manager = get_db_manager()
+            # Get database manager
+            db_manager = app.config.get('db_manager') or app.extensions.get('db_manager')
+            
+            if not db_manager:
+                from backend.config.database import DatabaseManager
+                db_manager = DatabaseManager()
             
             with db_manager.get_session() as session:
                 # Check if data already exists
