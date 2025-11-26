@@ -211,3 +211,9 @@ Traceback (most recent call last):
 ModuleNotFoundError: No module named 'backend.utils.math_utils'
 2025-11-26 22:40:31,026 - backend.config.database - INFO - Database connection pool created successfully
 2025-11-26 22:40:31,027 - backend.main - INFO - Database manager initialized
+2025-11-26 22:44:26,045 - backend.config.database - INFO - Database connection pool created successfully
+2025-11-26 22:44:26,046 - backend.main - INFO - Database manager initialized
+2025-11-26 22:49:10,470 - backend.config.database - INFO - Database connection pool created successfully
+2025-11-26 22:49:10,471 - backend.main - INFO - Database manager initialized
+2025-11-26 22:49:10,515 - backend.main - INFO - API blueprints registered
+2025-11-26 22:49:10,518 - backend.main - INFO - CargoOpt application created in development mode

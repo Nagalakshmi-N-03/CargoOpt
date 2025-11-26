@@ -74,19 +74,21 @@ def _init_extensions(app):
 def _register_blueprints(app):
     """Register Flask blueprints for API routes."""
     from backend.api.routes import api_bp
-    from backend.api.optimization import optimization_bp
-    from backend.api.containers import containers_bp
-    from backend.api.items import items_bp
-    from backend.api.history import history_bp
-    from backend.api.exports import exports_bp
     
-    # Register main API blueprint
+    # Register main API blueprint (only existing one for now)
     app.register_blueprint(api_bp, url_prefix='/api')
-    app.register_blueprint(optimization_bp, url_prefix='/api/optimize')
-    app.register_blueprint(containers_bp, url_prefix='/api/containers')
-    app.register_blueprint(items_bp, url_prefix='/api/items')
-    app.register_blueprint(history_bp, url_prefix='/api/history')
-    app.register_blueprint(exports_bp, url_prefix='/api/exports')
+    
+    # TODO: Add these blueprints when they are created:
+    # from backend.api.optimization import optimization_bp
+    # from backend.api.containers import containers_bp
+    # from backend.api.items import items_bp
+    # from backend.api.history import history_bp
+    # from backend.api.exports import exports_bp
+    # app.register_blueprint(optimization_bp, url_prefix='/api/optimize')
+    # app.register_blueprint(containers_bp, url_prefix='/api/containers')
+    # app.register_blueprint(items_bp, url_prefix='/api/items')
+    # app.register_blueprint(history_bp, url_prefix='/api/history')
+    # app.register_blueprint(exports_bp, url_prefix='/api/exports')
     
     logger.info("API blueprints registered")
 
