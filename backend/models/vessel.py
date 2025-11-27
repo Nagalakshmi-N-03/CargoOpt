@@ -1,41 +1,16 @@
 """
-SQLAlchemy Database Models for CargoOpt
-These are the actual database table definitions.
+Vessel Model
+Represents cargo vessels with their specifications.
 """
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Enum as SQLEnum, ForeignKey, Text
-from sqlalchemy.orm import relationship
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any
+from enum import Enum
 from datetime import datetime
-import enum
-
-from backend.models.base import Base
 
 
-# Enums
-class ContainerTypeEnum(enum.Enum):
-    STANDARD_20 = "20ft Standard"
-    STANDARD_40 = "40ft Standard"
-    HIGH_CUBE_40 = "40ft High Cube"
-    HIGH_CUBE_45 = "45ft High Cube"
-    REFRIGERATED_20 = "20ft Refrigerated"
-    REFRIGERATED_40 = "40ft Refrigerated"
-    OPEN_TOP_20 = "20ft Open Top"
-    OPEN_TOP_40 = "40ft Open Top"
-    FLAT_RACK_20 = "20ft Flat Rack"
-    FLAT_RACK_40 = "40ft Flat Rack"
-    TANK_20 = "20ft Tank"
-    CUSTOM = "Custom"
-
-
-class ItemTypeEnum(enum.Enum):
-    STANDARD = "Standard"
-    FRAGILE = "Fragile"
-    HAZARDOUS = "Hazardous"
-    PERISHABLE = "Perishable"
-    VALUABLE = "Valuable"
-
-
-class VesselTypeEnum(enum.Enum):
+class VesselType(Enum):
+    """Standard vessel types by capacity."""
     FEEDER = "Feeder (< 3000 TEU)"
     PANAMAX = "Panamax (3000-5000 TEU)"
     POST_PANAMAX = "Post-Panamax (5000-10000 TEU)"
@@ -43,199 +18,246 @@ class VesselTypeEnum(enum.Enum):
     ULTRA_LARGE = "Ultra Large (> 14500 TEU)"
 
 
-# Database Models
-class ContainerDB(Base):
-    """Container database model."""
-    __tablename__ = 'containers'
+@dataclass
+class Vessel:
+    """
+    Represents a cargo vessel for container shipping.
+    """
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    container_id = Column(String(100), unique=True, nullable=False, index=True)
-    name = Column(String(200))
-    container_type = Column(SQLEnum(ContainerTypeEnum), nullable=False)
-    
-    # Dimensions (mm)
-    length = Column(Integer, nullable=False)
-    width = Column(Integer, nullable=False)
-    height = Column(Integer, nullable=False)
+    # Identity
+    vessel_id: str
+    name: str
+    vessel_type: VesselType = VesselType.FEEDER
     
     # Capacity
-    max_weight = Column(Float, nullable=False)
-    tare_weight = Column(Float, nullable=False)
+    teu_capacity: int = 1000  # Twenty-foot Equivalent Units
+    max_weight_tons: float = 10000.0  # Maximum cargo weight in tons
     
-    # Properties
-    description = Column(Text)
-    is_active = Column(Boolean, default=True)
-    
-    # Temperature control
-    temperature_controlled = Column(Boolean, default=False)
-    min_temperature = Column(Float)
-    max_temperature = Column(Float)
-    
-    # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    items = relationship("ItemDB", back_populates="container")
-    stowage_positions = relationship("StowagePositionDB", back_populates="container")
-
-
-class ItemDB(Base):
-    """Item database model."""
-    __tablename__ = 'items'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    item_id = Column(String(100), unique=True, nullable=False, index=True)
-    name = Column(String(200), nullable=False)
-    item_type = Column(SQLEnum(ItemTypeEnum), default=ItemTypeEnum.STANDARD)
-    
-    # Dimensions (mm)
-    length = Column(Integer, nullable=False)
-    width = Column(Integer, nullable=False)
-    height = Column(Integer, nullable=False)
-    
-    # Weight
-    weight = Column(Float, nullable=False)
-    
-    # Properties
-    description = Column(Text)
-    is_fragile = Column(Boolean, default=False)
-    is_stackable = Column(Boolean, default=True)
-    max_stack_weight = Column(Float)
-    
-    # Container assignment
-    container_id = Column(Integer, ForeignKey('containers.id'))
-    container = relationship("ContainerDB", back_populates="items")
-    
-    # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
-class VesselDB(Base):
-    """Vessel database model."""
-    __tablename__ = 'vessels'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    vessel_id = Column(String(100), unique=True, nullable=False, index=True)
-    name = Column(String(200), nullable=False)
-    vessel_type = Column(SQLEnum(VesselTypeEnum), nullable=False)
-    
-    # Capacity
-    teu_capacity = Column(Integer, nullable=False)
-    max_weight_tons = Column(Float, nullable=False)
-    
-    # Dimensions
-    length_m = Column(Float, nullable=False)
-    width_m = Column(Float, nullable=False)
-    draft_m = Column(Float, nullable=False)
+    # Dimensions (in meters)
+    length_m: float = 150.0
+    width_m: float = 25.0
+    draft_m: float = 10.0  # Maximum draft/depth
     
     # Stowage configuration
-    bays = Column(Integer, nullable=False)
-    rows = Column(Integer, nullable=False)
-    tiers_above_deck = Column(Integer, nullable=False)
-    tiers_below_deck = Column(Integer, nullable=False)
+    bays: int = 10  # Number of bays (longitudinal)
+    rows: int = 8   # Number of rows (transverse)
+    tiers_above_deck: int = 4  # Tiers above deck
+    tiers_below_deck: int = 6  # Tiers below deck
+    
+    # Special features
+    reefer_plugs: int = 0  # Number of refrigerated container plugs
+    max_speed_knots: float = 20.0  # Maximum speed in knots
     
     # Properties
-    reefer_plugs = Column(Integer, default=0)
-    max_speed_knots = Column(Float, default=20.0)
+    description: Optional[str] = None
+    is_active: bool = True
     
     # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
     
-    # Relationships
-    stowage_plans = relationship("StowagePlanDB", back_populates="vessel")
-
-
-class StowagePlanDB(Base):
-    """Stowage plan database model."""
-    __tablename__ = 'stowage_plans'
+    def __post_init__(self):
+        """Post-initialization processing."""
+        if isinstance(self.vessel_type, str):
+            self.vessel_type = VesselType(self.vessel_type)
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    plan_id = Column(String(100), unique=True, nullable=False, index=True)
-    voyage_number = Column(String(50), nullable=False)
+    @property
+    def total_tiers(self) -> int:
+        """Calculate total number of tiers."""
+        return self.tiers_above_deck + self.tiers_below_deck
     
-    # Foreign keys
-    vessel_id = Column(Integer, ForeignKey('vessels.id'), nullable=False)
-    vessel = relationship("VesselDB", back_populates="stowage_plans")
+    @property
+    def total_slots(self) -> int:
+        """Calculate theoretical maximum container slots."""
+        return self.bays * self.rows * self.total_tiers
     
-    # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
-    created_by = Column(String(100))
+    @property
+    def deadweight_tons(self) -> float:
+        """Calculate approximate deadweight tonnage."""
+        # Rough estimate: TEU capacity * 14 tons average per TEU
+        return self.teu_capacity * 14.0
     
-    # Relationships
-    positions = relationship("StowagePositionDB", back_populates="stowage_plan", cascade="all, delete-orphan")
-
-
-class StowagePositionDB(Base):
-    """Stowage position database model."""
-    __tablename__ = 'stowage_positions'
+    @classmethod
+    def feeder_vessel(cls, vessel_id: str, name: str) -> 'Vessel':
+        """Create a small feeder vessel."""
+        return cls(
+            vessel_id=vessel_id,
+            name=name,
+            vessel_type=VesselType.FEEDER,
+            teu_capacity=1000,
+            max_weight_tons=12000,
+            length_m=135.0,
+            width_m=20.0,
+            draft_m=8.0,
+            bays=8,
+            rows=6,
+            tiers_above_deck=3,
+            tiers_below_deck=5,
+            reefer_plugs=50,
+            max_speed_knots=18.0
+        )
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    @classmethod
+    def panamax_vessel(cls, vessel_id: str, name: str) -> 'Vessel':
+        """Create a Panamax vessel."""
+        return cls(
+            vessel_id=vessel_id,
+            name=name,
+            vessel_type=VesselType.PANAMAX,
+            teu_capacity=4500,
+            max_weight_tons=52000,
+            length_m=294.0,
+            width_m=32.2,
+            draft_m=12.0,
+            bays=17,
+            rows=13,
+            tiers_above_deck=5,
+            tiers_below_deck=7,
+            reefer_plugs=300,
+            max_speed_knots=22.0
+        )
     
-    # Foreign keys
-    stowage_plan_id = Column(Integer, ForeignKey('stowage_plans.id'), nullable=False)
-    stowage_plan = relationship("StowagePlanDB", back_populates="positions")
+    @classmethod
+    def post_panamax_vessel(cls, vessel_id: str, name: str) -> 'Vessel':
+        """Create a Post-Panamax vessel."""
+        return cls(
+            vessel_id=vessel_id,
+            name=name,
+            vessel_type=VesselType.POST_PANAMAX,
+            teu_capacity=8000,
+            max_weight_tons=100000,
+            length_m=330.0,
+            width_m=42.8,
+            draft_m=14.5,
+            bays=21,
+            rows=17,
+            tiers_above_deck=7,
+            tiers_below_deck=9,
+            reefer_plugs=500,
+            max_speed_knots=24.0
+        )
     
-    container_id = Column(Integer, ForeignKey('containers.id'), nullable=False)
-    container = relationship("ContainerDB", back_populates="stowage_positions")
+    @classmethod
+    def ultra_large_vessel(cls, vessel_id: str, name: str) -> 'Vessel':
+        """Create an Ultra Large Container Vessel (ULCV)."""
+        return cls(
+            vessel_id=vessel_id,
+            name=name,
+            vessel_type=VesselType.ULTRA_LARGE,
+            teu_capacity=20000,
+            max_weight_tons=200000,
+            length_m=400.0,
+            width_m=58.0,
+            draft_m=16.0,
+            bays=24,
+            rows=23,
+            tiers_above_deck=9,
+            tiers_below_deck=11,
+            reefer_plugs=1000,
+            max_speed_knots=22.5
+        )
     
-    # Position
-    bay = Column(Integer, nullable=False)
-    row = Column(Integer, nullable=False)
-    tier = Column(Integer, nullable=False)
-    is_above_deck = Column(Boolean, nullable=False)
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Vessel':
+        """Create vessel from dictionary."""
+        return cls(
+            vessel_id=data.get('vessel_id', ''),
+            name=data.get('name', ''),
+            vessel_type=VesselType(data.get('vessel_type', VesselType.FEEDER.value)),
+            teu_capacity=data.get('teu_capacity', 1000),
+            max_weight_tons=data.get('max_weight_tons', 10000.0),
+            length_m=data.get('length_m', 150.0),
+            width_m=data.get('width_m', 25.0),
+            draft_m=data.get('draft_m', 10.0),
+            bays=data.get('bays', 10),
+            rows=data.get('rows', 8),
+            tiers_above_deck=data.get('tiers_above_deck', 4),
+            tiers_below_deck=data.get('tiers_below_deck', 6),
+            reefer_plugs=data.get('reefer_plugs', 0),
+            max_speed_knots=data.get('max_speed_knots', 20.0),
+            description=data.get('description'),
+            is_active=data.get('is_active', True)
+        )
     
-    # Properties
-    weight_kg = Column(Float, nullable=False)
-    is_reefer = Column(Boolean, default=False)
-    hazard_class = Column(String(20))
-
-
-class UserDB(Base):
-    """User database model for authentication."""
-    __tablename__ = 'users'
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert vessel to dictionary."""
+        return {
+            'vessel_id': self.vessel_id,
+            'name': self.name,
+            'vessel_type': self.vessel_type.value,
+            'capacity': {
+                'teu_capacity': self.teu_capacity,
+                'max_weight_tons': self.max_weight_tons,
+                'deadweight_tons': self.deadweight_tons
+            },
+            'dimensions': {
+                'length_m': self.length_m,
+                'width_m': self.width_m,
+                'draft_m': self.draft_m
+            },
+            'stowage_config': {
+                'bays': self.bays,
+                'rows': self.rows,
+                'tiers_above_deck': self.tiers_above_deck,
+                'tiers_below_deck': self.tiers_below_deck,
+                'total_tiers': self.total_tiers,
+                'total_slots': self.total_slots
+            },
+            'features': {
+                'reefer_plugs': self.reefer_plugs,
+                'max_speed_knots': self.max_speed_knots
+            },
+            'description': self.description,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String(100), unique=True, nullable=False, index=True)
-    email = Column(String(200), unique=True, nullable=False, index=True)
-    password_hash = Column(String(200), nullable=False)
+    def can_accommodate_reefers(self, count: int) -> bool:
+        """Check if vessel can accommodate the number of refrigerated containers."""
+        return count <= self.reefer_plugs
     
-    # Profile
-    full_name = Column(String(200))
-    company = Column(String(200))
+    def get_position_code(self, bay: int, row: int, tier: int, above_deck: bool) -> str:
+        """
+        Generate standard container position code (Bay-Row-Tier format).
+        
+        Args:
+            bay: Bay number (1-based)
+            row: Row number (1-based, odd numbers are centerline)
+            tier: Tier number (1-based)
+            above_deck: Whether position is above deck
+            
+        Returns:
+            Position code in format BBRRTT
+        """
+        # Standard format: bay (2 digits), row (2 digits), tier (2 digits)
+        # Below deck tiers typically use 02, 04, 06... 
+        # Above deck tiers use 82, 84, 86...
+        tier_code = tier * 2
+        if above_deck:
+            tier_code += 80
+        
+        return f"{bay:02d}{row:02d}{tier_code:02d}"
     
-    # Status
-    is_active = Column(Boolean, default=True)
-    is_admin = Column(Boolean, default=False)
+    def validate_position(self, bay: int, row: int, tier: int, above_deck: bool) -> tuple[bool, Optional[str]]:
+        """
+        Validate if a position is within vessel bounds.
+        
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if bay < 1 or bay > self.bays:
+            return False, f"Bay {bay} out of range (1-{self.bays})"
+        
+        if row < 1 or row > self.rows:
+            return False, f"Row {row} out of range (1-{self.rows})"
+        
+        max_tier = self.tiers_above_deck if above_deck else self.tiers_below_deck
+        if tier < 1 or tier > max_tier:
+            deck_type = "above deck" if above_deck else "below deck"
+            return False, f"Tier {tier} out of range for {deck_type} (1-{max_tier})"
+        
+        return True, None
     
-    # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_login = Column(DateTime)
-
-
-class OptimizationRunDB(Base):
-    """Optimization run tracking."""
-    __tablename__ = 'optimization_runs'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    run_id = Column(String(100), unique=True, nullable=False, index=True)
-    
-    # Parameters
-    algorithm = Column(String(50), nullable=False)
-    objective = Column(String(50))
-    
-    # Results
-    status = Column(String(20), default='pending')  # pending, running, completed, failed
-    utilization_percent = Column(Float)
-    total_items = Column(Integer)
-    packed_items = Column(Integer)
-    execution_time_seconds = Column(Float)
-    
-    # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
-    completed_at = Column(DateTime)
-    created_by = Column(String(100))
-    
-    # Error tracking
-    error_message = Column(Text)
+    def __repr__(self) -> str:
+        return f"Vessel({self.vessel_id}, {self.name}, {self.vessel_type.value}, {self.teu_capacity} TEU)"

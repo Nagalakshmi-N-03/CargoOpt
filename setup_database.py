@@ -1,8 +1,9 @@
 """
-Database Setup Script for CargoOpt
-Handles database initialization, reset, and testing
+CargoOpt Database Setup Script
+Initialize, reset, and manage the database.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -10,243 +11,307 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-import logging
 
-logger = logging.getLogger(__name__)
+def print_header(text):
+    """Print a formatted header."""
+    print("\n" + "=" * 50)
+    print(text)
+    print("=" * 50)
+
+
+def print_success(text):
+    """Print success message."""
+    print(f"✓ {text}")
+
+
+def print_error(text):
+    """Print error message."""
+    print(f"✗ {text}")
 
 
 def init_database():
-    """Initialize the database with all tables"""
-    print("\nCreating database...")
+    """Initialize the database for the first time."""
     try:
-        from backend.main import create_app
+        print("Creating database...")
+        
+        # Import after adding to path
+        from sqlalchemy import create_engine
+        from backend.config import get_database_url
         from backend.models.base import Base
         
         # Import all models to register them with Base
         from backend.models.db_models import (
-            ContainerDB, ItemDB, VesselDB, StowagePlanDB, 
-            StowagePositionDB, UserDB, OptimizationRunDB
+            ContainerDB,
+            ItemDB,
+            VesselDB,
+            StowagePlanDB,
+            StowagePositionDB,
+            UserDB,
+            OptimizationRunDB
         )
         
-        app = create_app()
-        with app.app_context():
-            # Get database manager from app
-            db_manager = app.config.get('db_manager') or app.extensions.get('db_manager')
-            
-            if not db_manager:
-                # Fallback: create engine directly
-                from backend.config.database import DatabaseManager
-                db_manager = DatabaseManager()
-            
-            # Create all tables using SQLAlchemy Base metadata
-            engine = db_manager.engine
-            Base.metadata.create_all(bind=engine)
-            
-            print("✓ Database tables created successfully!")
-            
-            # Verify tables were created
-            from sqlalchemy import inspect
-            inspector = inspect(engine)
-            tables = inspector.get_table_names()
-            
-            print(f"\n✓ Created {len(tables)} tables:")
-            for table in sorted(tables):
-                print(f"  - {table}")
-                
-            return True
-            
+        # Create engine
+        db_url = get_database_url()
+        engine = create_engine(db_url, echo=True)
+        
+        # Create all tables
+        Base.metadata.create_all(engine)
+        
+        print_success("Database initialized successfully!")
+        print(f"Database location: {db_url}")
+        
+        return True
+        
     except Exception as e:
-        print(f"✗ Error during database setup: {e}")
+        print_error(f"Error during database setup: {e}")
         import traceback
         traceback.print_exc()
         return False
 
 
 def reset_database():
-    """Drop all tables and recreate them (WARNING: Deletes all data)"""
-    print("\n⚠️  WARNING: This will delete ALL data in the database!")
-    confirm = input("Type 'YES' to confirm: ")
-    
-    if confirm != 'YES':
-        print("Reset cancelled.")
-        return False
-    
-    print("\nResetting database...")
+    """Reset the database (WARNING: Deletes all data)."""
     try:
-        from backend.main import create_app
+        response = input("⚠️  WARNING: This will delete ALL data. Type 'YES' to confirm: ")
+        if response != 'YES':
+            print("Operation cancelled.")
+            return False
+        
+        print("Resetting database...")
+        
+        from sqlalchemy import create_engine
+        from backend.config import get_database_url
         from backend.models.base import Base
         
         # Import all models
         from backend.models.db_models import (
-            ContainerDB, ItemDB, VesselDB, StowagePlanDB, 
-            StowagePositionDB, UserDB, OptimizationRunDB
+            ContainerDB,
+            ItemDB,
+            VesselDB,
+            StowagePlanDB,
+            StowagePositionDB,
+            UserDB,
+            OptimizationRunDB
         )
         
-        app = create_app()
-        with app.app_context():
-            # Get database manager
-            db_manager = app.config.get('db_manager') or app.extensions.get('db_manager')
-            
-            if not db_manager:
-                from backend.config.database import DatabaseManager
-                db_manager = DatabaseManager()
-            
-            engine = db_manager.engine
-            
-            # Drop all tables
-            Base.metadata.drop_all(bind=engine)
-            print("✓ Dropped all existing tables")
-            
-            # Recreate all tables
-            Base.metadata.create_all(bind=engine)
-            print("✓ Recreated all tables")
-            
-            # Verify tables
-            from sqlalchemy import inspect
-            inspector = inspect(engine)
-            tables = inspector.get_table_names()
-            
-            print(f"\n✓ Database reset complete. {len(tables)} tables created:")
-            for table in sorted(tables):
-                print(f"  - {table}")
-                
-            return True
-            
+        db_url = get_database_url()
+        engine = create_engine(db_url, echo=True)
+        
+        # Drop all tables
+        Base.metadata.drop_all(engine)
+        print_success("All tables dropped")
+        
+        # Recreate all tables
+        Base.metadata.create_all(engine)
+        print_success("All tables recreated")
+        
+        print_success("Database reset complete!")
+        return True
+        
     except Exception as e:
-        print(f"✗ Error during database reset: {e}")
+        print_error(f"Error during reset: {e}")
         import traceback
         traceback.print_exc()
         return False
 
 
 def test_connection():
-    """Test database connection"""
-    print("\nTesting database connection...")
+    """Test database connection."""
     try:
-        from backend.main import create_app
+        print("Testing database connection...")
         
-        app = create_app()
-        with app.app_context():
-            # Get database manager
-            db_manager = app.config.get('db_manager') or app.extensions.get('db_manager')
-            
-            if not db_manager:
-                from backend.config.database import DatabaseManager
-                db_manager = DatabaseManager()
-            
-            # Try a simple query
-            with db_manager.get_session() as session:
-                result = session.execute("SELECT 1")
-                result.fetchone()
-                
-            print("✓ Database connection successful!")
-            
-            # Show database info
-            from sqlalchemy import inspect
-            inspector = inspect(db_manager.engine)
-            tables = inspector.get_table_names()
-            
-            if tables:
-                print(f"\n✓ Found {len(tables)} existing tables:")
-                for table in sorted(tables):
-                    # Get row count
-                    with db_manager.get_session() as session:
-                        try:
-                            count = session.execute(f"SELECT COUNT(*) FROM {table}").scalar()
-                            print(f"  - {table} ({count} rows)")
-                        except:
-                            print(f"  - {table}")
-            else:
-                print("\n⚠️  No tables found. Run option 1 to initialize the database.")
-                
-            return True
-            
+        from sqlalchemy import create_engine, text
+        from backend.config import get_database_url
+        
+        db_url = get_database_url()
+        engine = create_engine(db_url)
+        
+        # Try to connect
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            result.fetchone()
+        
+        print_success("Database connection successful!")
+        print(f"Database: {db_url}")
+        
+        return True
+        
     except Exception as e:
-        print(f"✗ Database connection failed: {e}")
-        import traceback
-        traceback.print_exc()
+        print_error(f"Connection failed: {e}")
         return False
 
 
-def seed_sample_data():
-    """Add sample data for testing"""
-    print("\nAdding sample data...")
+def add_sample_data():
+    """Add sample data to the database."""
     try:
-        from backend.main import create_app
-        from backend.models.db_models import (
-            ContainerDB, VesselDB, ContainerTypeEnum, VesselTypeEnum
-        )
+        print("Adding sample data...")
         
-        app = create_app()
-        with app.app_context():
-            # Get database manager
-            db_manager = app.config.get('db_manager') or app.extensions.get('db_manager')
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from backend.config import get_database_url
+        from backend.models.db_models import (
+            ContainerDB,
+            ItemDB,
+            VesselDB,
+            ContainerTypeEnum,
+            ItemTypeEnum,
+            VesselTypeEnum
+        )
+        from datetime import datetime
+        
+        db_url = get_database_url()
+        engine = create_engine(db_url)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        try:
+            # Add sample containers
+            containers = [
+                ContainerDB(
+                    container_id="CONT-001",
+                    name="20ft Standard Container #1",
+                    container_type=ContainerTypeEnum.STANDARD_20,
+                    length=5898,
+                    width=2352,
+                    height=2393,
+                    max_weight=28180,
+                    tare_weight=2300,
+                    is_active=True
+                ),
+                ContainerDB(
+                    container_id="CONT-002",
+                    name="40ft High Cube Container #1",
+                    container_type=ContainerTypeEnum.HIGH_CUBE_40,
+                    length=12032,
+                    width=2352,
+                    height=2698,
+                    max_weight=26560,
+                    tare_weight=3920,
+                    is_active=True
+                ),
+                ContainerDB(
+                    container_id="CONT-003",
+                    name="20ft Refrigerated Container #1",
+                    container_type=ContainerTypeEnum.REFRIGERATED_20,
+                    length=5444,
+                    width=2294,
+                    height=2276,
+                    max_weight=27400,
+                    tare_weight=3080,
+                    temperature_controlled=True,
+                    min_temperature=-25.0,
+                    max_temperature=25.0,
+                    is_active=True
+                )
+            ]
             
-            if not db_manager:
-                from backend.config.database import DatabaseManager
-                db_manager = DatabaseManager()
+            for container in containers:
+                session.add(container)
+            print_success(f"Added {len(containers)} sample containers")
             
-            with db_manager.get_session() as session:
-                # Check if data already exists
-                existing_containers = session.query(ContainerDB).count()
-                if existing_containers > 0:
-                    print(f"⚠️  Database already has {existing_containers} containers.")
-                    confirm = input("Add more sample data anyway? (yes/no): ")
-                    if confirm.lower() != 'yes':
-                        print("Cancelled.")
-                        return False
-                
-                # Add sample containers
-                containers = [
-                    ContainerDB(
-                        container_id="CNT-001",
-                        name="20ft Standard Container",
-                        container_type=ContainerTypeEnum.STANDARD_20,
-                        length=5898, width=2352, height=2393,
-                        max_weight=28180, tare_weight=2300
-                    ),
-                    ContainerDB(
-                        container_id="CNT-002",
-                        name="40ft High Cube",
-                        container_type=ContainerTypeEnum.HIGH_CUBE_40,
-                        length=12032, width=2352, height=2698,
-                        max_weight=26560, tare_weight=3920
-                    )
-                ]
-                
-                # Add sample vessel
-                vessel = VesselDB(
-                    vessel_id="VSL-001",
+            # Add sample items
+            items = [
+                ItemDB(
+                    item_id="ITEM-001",
+                    name="Standard Pallet",
+                    item_type=ItemTypeEnum.STANDARD,
+                    length=1200,
+                    width=1000,
+                    height=1500,
+                    weight=500.0,
+                    is_stackable=True
+                ),
+                ItemDB(
+                    item_id="ITEM-002",
+                    name="Fragile Electronics Box",
+                    item_type=ItemTypeEnum.FRAGILE,
+                    length=800,
+                    width=600,
+                    height=400,
+                    weight=50.0,
+                    is_fragile=True,
+                    is_stackable=False
+                ),
+                ItemDB(
+                    item_id="ITEM-003",
+                    name="Perishable Food Crate",
+                    item_type=ItemTypeEnum.PERISHABLE,
+                    length=600,
+                    width=400,
+                    height=300,
+                    weight=100.0,
+                    is_stackable=True
+                )
+            ]
+            
+            for item in items:
+                session.add(item)
+            print_success(f"Added {len(items)} sample items")
+            
+            # Add sample vessels
+            vessels = [
+                VesselDB(
+                    vessel_id="VESSEL-001",
                     name="MV Cargo Express",
                     vessel_type=VesselTypeEnum.FEEDER,
-                    teu_capacity=2500,
-                    max_weight_tons=30000,
-                    length_m=185.0, width_m=28.0, draft_m=10.5,
-                    bays=14, rows=7, tiers_above_deck=5, tiers_below_deck=6,
-                    reefer_plugs=200
+                    teu_capacity=1000,
+                    max_weight_tons=12000,
+                    length_m=135.0,
+                    width_m=20.0,
+                    draft_m=8.0,
+                    bays=8,
+                    rows=6,
+                    tiers_above_deck=3,
+                    tiers_below_deck=5,
+                    reefer_plugs=50,
+                    max_speed_knots=18.0,
+                    is_active=True
+                ),
+                VesselDB(
+                    vessel_id="VESSEL-002",
+                    name="MV Pacific Star",
+                    vessel_type=VesselTypeEnum.PANAMAX,
+                    teu_capacity=4500,
+                    max_weight_tons=52000,
+                    length_m=294.0,
+                    width_m=32.2,
+                    draft_m=12.0,
+                    bays=17,
+                    rows=13,
+                    tiers_above_deck=5,
+                    tiers_below_deck=7,
+                    reefer_plugs=300,
+                    max_speed_knots=22.0,
+                    is_active=True
                 )
-                
-                session.add_all(containers)
+            ]
+            
+            for vessel in vessels:
                 session.add(vessel)
-                session.commit()
-                
-                print(f"✓ Added {len(containers)} sample containers")
-                print(f"✓ Added 1 sample vessel")
-                
+            print_success(f"Added {len(vessels)} sample vessels")
+            
+            # Commit all changes
+            session.commit()
+            print_success("Sample data added successfully!")
+            
             return True
             
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+        
     except Exception as e:
-        print(f"✗ Error adding sample data: {e}")
+        print_error(f"Error adding sample data: {e}")
         import traceback
         traceback.print_exc()
         return False
 
 
 def main():
-    """Main menu for database setup"""
-    print("=" * 50)
-    print("CargoOpt - Database Setup")
-    print("=" * 50)
+    """Main function."""
+    print_header("CargoOpt - Database Setup")
     
     print("\nSelect an option:")
     print("1. Initialize database (first time setup)")
@@ -263,17 +328,16 @@ def main():
     elif choice == '3':
         success = test_connection()
     elif choice == '4':
-        success = seed_sample_data()
+        success = add_sample_data()
     else:
-        print("Invalid choice. Please run the script again.")
+        print_error("Invalid choice!")
         return
     
     if success:
-        print("\n✓ Operation completed successfully!")
+        print_success("\nOperation completed successfully!")
     else:
-        print("\n✗ Operation failed. Check the errors above.")
-        sys.exit(1)
+        print_error("\nOperation failed. Check the errors above.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

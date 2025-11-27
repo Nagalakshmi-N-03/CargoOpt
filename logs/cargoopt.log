@@ -217,3 +217,210 @@ ModuleNotFoundError: No module named 'backend.utils.math_utils'
 2025-11-26 22:49:10,471 - backend.main - INFO - Database manager initialized
 2025-11-26 22:49:10,515 - backend.main - INFO - API blueprints registered
 2025-11-26 22:49:10,518 - backend.main - INFO - CargoOpt application created in development mode
+2025-11-27 12:40:28,862 - sqlalchemy.engine.Engine - INFO - select pg_catalog.version()
+2025-11-27 12:40:28,864 - sqlalchemy.engine.Engine - INFO - [raw sql] {}
+2025-11-27 12:40:28,869 - sqlalchemy.engine.Engine - INFO - select current_schema()
+2025-11-27 12:40:28,870 - sqlalchemy.engine.Engine - INFO - [raw sql] {}
+2025-11-27 12:40:28,878 - sqlalchemy.engine.Engine - INFO - show standard_conforming_strings
+2025-11-27 12:40:28,886 - sqlalchemy.engine.Engine - INFO - [raw sql] {}
+2025-11-27 12:40:28,890 - sqlalchemy.engine.Engine - INFO - BEGIN (implicit)
+2025-11-27 12:40:28,901 - sqlalchemy.engine.Engine - INFO - SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2025-11-27 12:40:28,907 - sqlalchemy.engine.Engine - INFO - [generated in 0.00808s] {'table_name': 'containers', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2025-11-27 12:40:28,922 - sqlalchemy.engine.Engine - INFO - SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2025-11-27 12:40:28,924 - sqlalchemy.engine.Engine - INFO - [cached since 0.02501s ago] {'table_name': 'items', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2025-11-27 12:40:28,927 - sqlalchemy.engine.Engine - INFO - SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2025-11-27 12:40:28,938 - sqlalchemy.engine.Engine - INFO - [cached since 0.03871s ago] {'table_name': 'vessels', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2025-11-27 12:40:28,940 - sqlalchemy.engine.Engine - INFO - SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2025-11-27 12:40:28,941 - sqlalchemy.engine.Engine - INFO - [cached since 0.04189s ago] {'table_name': 'stowage_plans', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2025-11-27 12:40:28,944 - sqlalchemy.engine.Engine - INFO - SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2025-11-27 12:40:28,950 - sqlalchemy.engine.Engine - INFO - [cached since 0.05098s ago] {'table_name': 'stowage_positions', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2025-11-27 12:40:28,952 - sqlalchemy.engine.Engine - INFO - SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2025-11-27 12:40:28,953 - sqlalchemy.engine.Engine - INFO - [cached since 0.05425s ago] {'table_name': 'users', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2025-11-27 12:40:28,957 - sqlalchemy.engine.Engine - INFO - SELECT pg_catalog.pg_class.relname 
+FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+WHERE pg_catalog.pg_class.relname = %(table_name)s AND pg_catalog.pg_class.relkind = ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, %(param_4)s, %(param_5)s]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2025-11-27 12:40:28,958 - sqlalchemy.engine.Engine - INFO - [cached since 0.05895s ago] {'table_name': 'optimization_runs', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+2025-11-27 12:40:28,970 - sqlalchemy.engine.Engine - INFO - SELECT pg_catalog.pg_type.typname 
+FROM pg_catalog.pg_type JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_type.typnamespace 
+WHERE pg_catalog.pg_type.typname = %(typname_1)s AND pg_catalog.pg_type_is_visible(pg_catalog.pg_type.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2025-11-27 12:40:28,972 - sqlalchemy.engine.Engine - INFO - [generated in 0.00267s] {'typname_1': 'containertypeenum', 'nspname_1': 'pg_catalog'}
+2025-11-27 12:40:28,976 - sqlalchemy.engine.Engine - INFO - CREATE TYPE containertypeenum AS ENUM ('STANDARD_20', 'STANDARD_40', 'HIGH_CUBE_40', 'HIGH_CUBE_45', 'REFRIGERATED_20', 'REFRIGERATED_40', 'OPEN_TOP_20', 'OPEN_TOP_40', 'FLAT_RACK_20', 'FLAT_RACK_40', 'TANK_20', 'CUSTOM')
+2025-11-27 12:40:28,985 - sqlalchemy.engine.Engine - INFO - [no key 0.00873s] {}
+2025-11-27 12:40:29,011 - sqlalchemy.engine.Engine - INFO - SELECT pg_catalog.pg_type.typname 
+FROM pg_catalog.pg_type JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_type.typnamespace 
+WHERE pg_catalog.pg_type.typname = %(typname_1)s AND pg_catalog.pg_type_is_visible(pg_catalog.pg_type.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2025-11-27 12:40:29,012 - sqlalchemy.engine.Engine - INFO - [cached since 0.04202s ago] {'typname_1': 'itemtypeenum', 'nspname_1': 'pg_catalog'}
+2025-11-27 12:40:29,016 - sqlalchemy.engine.Engine - INFO - CREATE TYPE itemtypeenum AS ENUM ('STANDARD', 'FRAGILE', 'HAZARDOUS', 'PERISHABLE', 'VALUABLE')
+2025-11-27 12:40:29,019 - sqlalchemy.engine.Engine - INFO - [no key 0.00333s] {}
+2025-11-27 12:40:29,032 - sqlalchemy.engine.Engine - INFO - SELECT pg_catalog.pg_type.typname 
+FROM pg_catalog.pg_type JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_type.typnamespace 
+WHERE pg_catalog.pg_type.typname = %(typname_1)s AND pg_catalog.pg_type_is_visible(pg_catalog.pg_type.oid) AND pg_catalog.pg_namespace.nspname != %(nspname_1)s
+2025-11-27 12:40:29,033 - sqlalchemy.engine.Engine - INFO - [cached since 0.06367s ago] {'typname_1': 'vesseltypeenum', 'nspname_1': 'pg_catalog'}
+2025-11-27 12:40:29,036 - sqlalchemy.engine.Engine - INFO - CREATE TYPE vesseltypeenum AS ENUM ('FEEDER', 'PANAMAX', 'POST_PANAMAX', 'NEW_PANAMAX', 'ULTRA_LARGE')
+2025-11-27 12:40:29,036 - sqlalchemy.engine.Engine - INFO - [no key 0.00068s] {}
+2025-11-27 12:40:29,041 - sqlalchemy.engine.Engine - INFO - 
+CREATE TABLE containers (
+	id SERIAL NOT NULL, 
+	container_id VARCHAR(100) NOT NULL, 
+	name VARCHAR(200), 
+	container_type containertypeenum NOT NULL, 
+	length INTEGER NOT NULL, 
+	width INTEGER NOT NULL, 
+	height INTEGER NOT NULL, 
+	max_weight FLOAT NOT NULL, 
+	tare_weight FLOAT NOT NULL, 
+	description TEXT, 
+	is_active BOOLEAN, 
+	temperature_controlled BOOLEAN, 
+	min_temperature FLOAT, 
+	max_temperature FLOAT, 
+	created_at TIMESTAMP WITHOUT TIME ZONE, 
+	updated_at TIMESTAMP WITHOUT TIME ZONE, 
+	PRIMARY KEY (id)
+)
+
+
+2025-11-27 12:40:29,043 - sqlalchemy.engine.Engine - INFO - [no key 0.00248s] {}
+2025-11-27 12:40:29,120 - sqlalchemy.engine.Engine - INFO - CREATE UNIQUE INDEX ix_containers_container_id ON containers (container_id)
+2025-11-27 12:40:29,120 - sqlalchemy.engine.Engine - INFO - [no key 0.00085s] {}
+2025-11-27 12:40:29,129 - sqlalchemy.engine.Engine - INFO - 
+CREATE TABLE vessels (
+	id SERIAL NOT NULL, 
+	vessel_id VARCHAR(100) NOT NULL, 
+	name VARCHAR(200) NOT NULL, 
+	vessel_type vesseltypeenum NOT NULL, 
+	teu_capacity INTEGER NOT NULL, 
+	max_weight_tons FLOAT NOT NULL, 
+	length_m FLOAT NOT NULL, 
+	width_m FLOAT NOT NULL, 
+	draft_m FLOAT NOT NULL, 
+	bays INTEGER NOT NULL, 
+	rows INTEGER NOT NULL, 
+	tiers_above_deck INTEGER NOT NULL, 
+	tiers_below_deck INTEGER NOT NULL, 
+	reefer_plugs INTEGER, 
+	max_speed_knots FLOAT, 
+	created_at TIMESTAMP WITHOUT TIME ZONE, 
+	PRIMARY KEY (id)
+)
+
+
+2025-11-27 12:40:29,133 - sqlalchemy.engine.Engine - INFO - [no key 0.00325s] {}
+2025-11-27 12:40:29,145 - sqlalchemy.engine.Engine - INFO - CREATE UNIQUE INDEX ix_vessels_vessel_id ON vessels (vessel_id)
+2025-11-27 12:40:29,151 - sqlalchemy.engine.Engine - INFO - [no key 0.00634s] {}
+2025-11-27 12:40:29,159 - sqlalchemy.engine.Engine - INFO - 
+CREATE TABLE users (
+	id SERIAL NOT NULL, 
+	username VARCHAR(100) NOT NULL, 
+	email VARCHAR(200) NOT NULL, 
+	password_hash VARCHAR(200) NOT NULL, 
+	full_name VARCHAR(200), 
+	company VARCHAR(200), 
+	is_active BOOLEAN, 
+	is_admin BOOLEAN, 
+	created_at TIMESTAMP WITHOUT TIME ZONE, 
+	last_login TIMESTAMP WITHOUT TIME ZONE, 
+	PRIMARY KEY (id)
+)
+
+
+2025-11-27 12:40:29,164 - sqlalchemy.engine.Engine - INFO - [no key 0.00517s] {}
+2025-11-27 12:40:29,184 - sqlalchemy.engine.Engine - INFO - CREATE UNIQUE INDEX ix_users_email ON users (email)
+2025-11-27 12:40:29,185 - sqlalchemy.engine.Engine - INFO - [no key 0.00121s] {}
+2025-11-27 12:40:29,190 - sqlalchemy.engine.Engine - INFO - CREATE UNIQUE INDEX ix_users_username ON users (username)
+2025-11-27 12:40:29,191 - sqlalchemy.engine.Engine - INFO - [no key 0.00114s] {}
+2025-11-27 12:40:29,200 - sqlalchemy.engine.Engine - INFO - 
+CREATE TABLE optimization_runs (
+	id SERIAL NOT NULL, 
+	run_id VARCHAR(100) NOT NULL, 
+	algorithm VARCHAR(50) NOT NULL, 
+	objective VARCHAR(50), 
+	status VARCHAR(20), 
+	utilization_percent FLOAT, 
+	total_items INTEGER, 
+	packed_items INTEGER, 
+	execution_time_seconds FLOAT, 
+	created_at TIMESTAMP WITHOUT TIME ZONE, 
+	completed_at TIMESTAMP WITHOUT TIME ZONE, 
+	created_by VARCHAR(100), 
+	error_message TEXT, 
+	PRIMARY KEY (id)
+)
+
+
+2025-11-27 12:40:29,201 - sqlalchemy.engine.Engine - INFO - [no key 0.00185s] {}
+2025-11-27 12:40:29,221 - sqlalchemy.engine.Engine - INFO - CREATE UNIQUE INDEX ix_optimization_runs_run_id ON optimization_runs (run_id)
+2025-11-27 12:40:29,222 - sqlalchemy.engine.Engine - INFO - [no key 0.00114s] {}
+2025-11-27 12:40:29,229 - sqlalchemy.engine.Engine - INFO - 
+CREATE TABLE items (
+	id SERIAL NOT NULL, 
+	item_id VARCHAR(100) NOT NULL, 
+	name VARCHAR(200) NOT NULL, 
+	item_type itemtypeenum, 
+	length INTEGER NOT NULL, 
+	width INTEGER NOT NULL, 
+	height INTEGER NOT NULL, 
+	weight FLOAT NOT NULL, 
+	description TEXT, 
+	is_fragile BOOLEAN, 
+	is_stackable BOOLEAN, 
+	max_stack_weight FLOAT, 
+	container_id INTEGER, 
+	created_at TIMESTAMP WITHOUT TIME ZONE, 
+	updated_at TIMESTAMP WITHOUT TIME ZONE, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(container_id) REFERENCES containers (id)
+)
+
+
+2025-11-27 12:40:29,231 - sqlalchemy.engine.Engine - INFO - [no key 0.00170s] {}
+2025-11-27 12:40:29,257 - sqlalchemy.engine.Engine - INFO - CREATE UNIQUE INDEX ix_items_item_id ON items (item_id)
+2025-11-27 12:40:29,260 - sqlalchemy.engine.Engine - INFO - [no key 0.00259s] {}
+2025-11-27 12:40:29,267 - sqlalchemy.engine.Engine - INFO - 
+CREATE TABLE stowage_plans (
+	id SERIAL NOT NULL, 
+	plan_id VARCHAR(100) NOT NULL, 
+	voyage_number VARCHAR(50) NOT NULL, 
+	vessel_id INTEGER NOT NULL, 
+	created_at TIMESTAMP WITHOUT TIME ZONE, 
+	created_by VARCHAR(100), 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(vessel_id) REFERENCES vessels (id)
+)
+
+
+2025-11-27 12:40:29,268 - sqlalchemy.engine.Engine - INFO - [no key 0.00106s] {}
+2025-11-27 12:40:29,280 - sqlalchemy.engine.Engine - INFO - CREATE UNIQUE INDEX ix_stowage_plans_plan_id ON stowage_plans (plan_id)
+2025-11-27 12:40:29,282 - sqlalchemy.engine.Engine - INFO - [no key 0.00173s] {}
+2025-11-27 12:40:29,287 - sqlalchemy.engine.Engine - INFO - 
+CREATE TABLE stowage_positions (
+	id SERIAL NOT NULL, 
+	stowage_plan_id INTEGER NOT NULL, 
+	container_id INTEGER NOT NULL, 
+	bay INTEGER NOT NULL, 
+	row INTEGER NOT NULL, 
+	tier INTEGER NOT NULL, 
+	is_above_deck BOOLEAN NOT NULL, 
+	weight_kg FLOAT NOT NULL, 
+	is_reefer BOOLEAN, 
+	hazard_class VARCHAR(20), 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(stowage_plan_id) REFERENCES stowage_plans (id), 
+	FOREIGN KEY(container_id) REFERENCES containers (id)
+)
+
+
+2025-11-27 12:40:29,289 - sqlalchemy.engine.Engine - INFO - [no key 0.00146s] {}
+2025-11-27 12:40:29,301 - sqlalchemy.engine.Engine - INFO - COMMIT
