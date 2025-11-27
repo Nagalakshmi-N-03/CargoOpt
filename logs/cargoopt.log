@@ -424,3 +424,16 @@ CREATE TABLE stowage_positions (
 
 2025-11-27 12:40:29,289 - sqlalchemy.engine.Engine - INFO - [no key 0.00146s] {}
 2025-11-27 12:40:29,301 - sqlalchemy.engine.Engine - INFO - COMMIT
+2025-11-27 13:02:12,330 - backend.config.database - INFO - Database connection pool created successfully
+2025-11-27 13:02:12,331 - backend.main - INFO - Database manager initialized
+2025-11-27 13:02:12,405 - backend.main - INFO - API blueprints registered
+2025-11-27 13:02:12,409 - backend.main - INFO - CargoOpt application created in development mode
+2025-11-27 13:02:13,944 - backend.config.database - INFO - Database connection pool created successfully
+2025-11-27 13:02:13,945 - backend.main - INFO - Database manager initialized
+2025-11-27 13:02:13,997 - backend.main - INFO - API blueprints registered
+2025-11-27 13:02:14,000 - backend.main - INFO - CargoOpt application created in development mode
+2025-11-27 13:02:14,033 - werkzeug - WARNING -  * Debugger is active!
+2025-11-27 16:42:03,984 - backend.main - INFO - GET / - 200 (0.002s)
+2025-11-27 16:42:04,180 - backend.main - INFO - GET /favicon.ico - 404 (0.001s)
+2025-11-27 22:26:08,485 - backend.config.database - INFO - Database connection pool created successfully
+2025-11-27 22:26:08,486 - backend.main - INFO - Database manager initialized

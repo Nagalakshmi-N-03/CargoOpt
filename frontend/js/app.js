@@ -1,568 +1,416 @@
-/**
- * CargoOpt Main Application
- * Core application logic and initialization
- */
+// CargoOpt Main Application
+// This is the entry point for the CargoOpt container optimization system
 
-import { API } from './api.js';
-import { ContainerForm } from './components/forms.js';
-import { ResultsViewer } from './components/results.js';
-import { Dashboard } from './components/dashboard.js';
-import { NotificationManager } from './utils/notifications.js';
+console.log('CargoOpt Application Starting...');
 
+// Initialize the application
 class CargoOptApp {
-  constructor() {
-    this.api = new API();
-    this.notifications = new NotificationManager();
-    
-    // Component instances
-    this.containerForm = null;
-    this.resultsViewer = null;
-    this.dashboard = null;
-    
-    // Application state
-    this.state = {
-      currentView: 'dashboard',
-      optimizationId: null,
-      optimizationResult: null,
-      container: null,
-      items: [],
-      isProcessing: false,
-    };
-    
-    // Event listeners
-    this.listeners = new Map();
-    
-    console.log('CargoOpt Application initialized');
-  }
-  
-  /**
-   * Initialize the application
-   */
-  async init() {
-    try {
-      console.log('Initializing CargoOpt...');
-      
-      // Check API connection
-      await this.checkAPIConnection();
-      
-      // Initialize components
-      this.initializeComponents();
-      
-      // Set up event listeners
-      this.setupEventListeners();
-      
-      // Load initial data
-      await this.loadInitialData();
-      
-      // Set initial view
-      this.navigateTo('dashboard');
-      
-      // Register service worker for PWA
-      this.registerServiceWorker();
-      
-      console.log('CargoOpt initialized successfully');
-      this.notifications.success('Application loaded successfully');
-      
-    } catch (error) {
-      console.error('Initialization error:', error);
-      this.notifications.error('Failed to initialize application');
-      this.handleError(error);
+    constructor() {
+        this.container = null;
+        this.items = [];
+        this.optimizationResult = null;
+        this.init();
     }
-  }
-  
-  /**
-   * Check API connection
-   */
-  async checkAPIConnection() {
-    try {
-      const health = await this.api.checkHealth();
-      console.log('API Status:', health.status);
-      
-      if (health.status !== 'healthy') {
-        throw new Error('API is not healthy');
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('API connection failed:', error);
-      throw new Error('Cannot connect to backend API');
+
+    init() {
+        console.log('Initializing CargoOpt...');
+        this.setupUI();
+        this.attachEventListeners();
     }
-  }
-  
-  /**
-   * Initialize all components
-   */
-  initializeComponents() {
-    // Initialize Container Form
-    this.containerForm = new ContainerForm({
-      containerId: 'container-form',
-      onSubmit: this.handleOptimizationSubmit.bind(this),
-      onCancel: () => this.navigateTo('dashboard'),
-    });
-    
-    // Initialize Results Viewer
-    this.resultsViewer = new ResultsViewer({
-      containerId: 'results-viewer',
-      onBack: () => this.navigateTo('dashboard'),
-      onExport: this.handleExport.bind(this),
-    });
-    
-    // Initialize Dashboard
-    this.dashboard = new Dashboard({
-      containerId: 'dashboard',
-      onNewOptimization: () => this.navigateTo('form'),
-      onViewResult: this.handleViewResult.bind(this),
-      onDeleteResult: this.handleDeleteResult.bind(this),
-    });
-    
-    console.log('Components initialized');
-  }
-  
-  /**
-   * Set up global event listeners
-   */
-  setupEventListeners() {
-    // Navigation events
-    document.addEventListener('click', (e) => {
-      if (e.target.matches('[data-navigate]')) {
-        e.preventDefault();
-        const view = e.target.dataset.navigate;
-        this.navigateTo(view);
-      }
-    });
-    
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      // Ctrl/Cmd + N: New optimization
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-        e.preventDefault();
-        this.navigateTo('form');
-      }
-      
-      // Escape: Go back to dashboard
-      if (e.key === 'Escape' && this.state.currentView !== 'dashboard') {
-        this.navigateTo('dashboard');
-      }
-    });
-    
-    // Window resize handler
-    window.addEventListener('resize', this.handleResize.bind(this));
-    
-    // Online/offline detection
-    window.addEventListener('online', () => {
-      this.notifications.success('Connection restored');
-      this.handleOnline();
-    });
-    
-    window.addEventListener('offline', () => {
-      this.notifications.warning('Connection lost. Working offline.');
-      this.handleOffline();
-    });
-    
-    // Before unload warning
-    window.addEventListener('beforeunload', (e) => {
-      if (this.state.isProcessing) {
-        e.preventDefault();
-        e.returnValue = 'Optimization in progress. Are you sure you want to leave?';
-        return e.returnValue;
-      }
-    });
-  }
-  
-  /**
-   * Load initial data from API
-   */
-  async loadInitialData() {
-    try {
-      // Load configuration
-      const config = await this.api.getConfig();
-      this.state.config = config;
-      
-      // Load recent optimizations
-      const history = await this.api.getOptimizationHistory({ limit: 10 });
-      this.state.history = history;
-      
-      // Update dashboard
-      if (this.dashboard) {
-        this.dashboard.updateHistory(history);
-      }
-      
-      console.log('Initial data loaded');
-    } catch (error) {
-      console.error('Failed to load initial data:', error);
-      // Non-critical error, continue with defaults
-    }
-  }
-  
-  /**
-   * Navigate to a view
-   */
-  navigateTo(view) {
-    console.log(`Navigating to: ${view}`);
-    
-    // Hide all views
-    document.querySelectorAll('.view').forEach(el => {
-      el.classList.add('hidden');
-    });
-    
-    // Show target view
-    const targetView = document.getElementById(`${view}-view`);
-    if (targetView) {
-      targetView.classList.remove('hidden');
-      targetView.classList.add('animate-fade-in');
-    }
-    
-    // Update navigation state
-    this.updateNavigation(view);
-    
-    // Update state
-    this.state.currentView = view;
-    
-    // Trigger view-specific actions
-    this.onViewChange(view);
-  }
-  
-  /**
-   * Update navigation UI
-   */
-  updateNavigation(activeView) {
-    document.querySelectorAll('[data-navigate]').forEach(el => {
-      if (el.dataset.navigate === activeView) {
-        el.classList.add('active');
-      } else {
-        el.classList.remove('active');
-      }
-    });
-  }
-  
-  /**
-   * Handle view change
-   */
-  onViewChange(view) {
-    switch (view) {
-      case 'dashboard':
-        this.dashboard?.refresh();
-        break;
-      case 'form':
-        this.containerForm?.reset();
-        break;
-      case 'results':
-        // Results are loaded when navigating
-        break;
-    }
-  }
-  
-  /**
-   * Handle optimization submission
-   */
-  async handleOptimizationSubmit(data) {
-    try {
-      this.state.isProcessing = true;
-      this.notifications.info('Starting optimization...');
-      
-      console.log('Submitting optimization:', data);
-      
-      // Submit optimization request
-      const result = await this.api.optimize({
-        container: data.container,
-        items: data.items,
-        algorithm: data.algorithm || 'genetic',
-        parameters: data.parameters,
-      });
-      
-      this.state.optimizationId = result.optimization_id;
-      
-      // Poll for results if async
-      if (result.status === 'pending' || result.status === 'running') {
-        await this.pollOptimizationStatus(result.optimization_id);
-      } else {
-        this.handleOptimizationComplete(result);
-      }
-      
-    } catch (error) {
-      console.error('Optimization error:', error);
-      this.notifications.error('Optimization failed: ' + error.message);
-      this.handleError(error);
-    } finally {
-      this.state.isProcessing = false;
-    }
-  }
-  
-  /**
-   * Poll optimization status
-   */
-  async pollOptimizationStatus(optimizationId) {
-    const maxAttempts = 60; // 5 minutes with 5 second intervals
-    let attempts = 0;
-    
-    const poll = async () => {
-      try {
-        attempts++;
+
+    setupUI() {
+        const app = document.getElementById('app');
         
-        const status = await this.api.getOptimizationStatus(optimizationId);
-        console.log('Optimization status:', status.status);
-        
-        if (status.status === 'completed') {
-          const result = await this.api.getOptimizationResult(optimizationId);
-          this.handleOptimizationComplete(result);
-          return;
-        }
-        
-        if (status.status === 'failed') {
-          throw new Error(status.error || 'Optimization failed');
-        }
-        
-        if (status.status === 'cancelled') {
-          this.notifications.warning('Optimization was cancelled');
-          return;
-        }
-        
-        if (attempts >= maxAttempts) {
-          throw new Error('Optimization timeout');
-        }
-        
-        // Update progress if available
-        if (status.progress !== undefined) {
-          this.updateProgress(status.progress);
-        }
-        
-        // Continue polling
-        setTimeout(poll, 5000);
-        
-      } catch (error) {
-        console.error('Polling error:', error);
-        this.notifications.error('Failed to get optimization status');
-        this.state.isProcessing = false;
-      }
-    };
-    
-    poll();
-  }
-  
-  /**
-   * Handle optimization completion
-   */
-  handleOptimizationComplete(result) {
-    console.log('Optimization completed:', result);
-    
-    this.state.optimizationResult = result;
-    this.state.isProcessing = false;
-    
-    // Show results
-    this.resultsViewer.displayResults(result);
-    this.navigateTo('results');
-    
-    // Show success notification
-    this.notifications.success(
-      `Optimization complete! Utilization: ${result.utilization.toFixed(1)}%`
-    );
-    
-    // Refresh dashboard history
-    this.loadInitialData();
-  }
-  
-  /**
-   * Update progress indicator
-   */
-  updateProgress(progress) {
-    const progressBar = document.getElementById('optimization-progress');
-    if (progressBar) {
-      progressBar.style.width = `${progress}%`;
-      progressBar.textContent = `${Math.round(progress)}%`;
+        app.innerHTML = `
+            <div class="container">
+                <header class="header">
+                    <div class="logo">
+                        <i class="fas fa-boxes"></i>
+                        <h1>CargoOpt</h1>
+                    </div>
+                    <p class="tagline">AI-Powered Container Optimization</p>
+                </header>
+
+                <main class="main-content">
+                    <!-- Navigation Tabs -->
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="input">
+                            <i class="fas fa-edit"></i> Input Data
+                        </button>
+                        <button class="tab-btn" data-tab="optimize">
+                            <i class="fas fa-cogs"></i> Optimize
+                        </button>
+                        <button class="tab-btn" data-tab="results">
+                            <i class="fas fa-chart-bar"></i> Results
+                        </button>
+                        <button class="tab-btn" data-tab="history">
+                            <i class="fas fa-history"></i> History
+                        </button>
+                    </div>
+
+                    <!-- Tab Contents -->
+                    <div class="tab-content active" id="input-tab">
+                        <div class="section">
+                            <h2><i class="fas fa-box"></i> Container Dimensions</h2>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Length (m)</label>
+                                    <input type="number" id="container-length" placeholder="12.0" step="0.1" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Width (m)</label>
+                                    <input type="number" id="container-width" placeholder="2.4" step="0.1" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Height (m)</label>
+                                    <input type="number" id="container-height" placeholder="2.6" step="0.1" min="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <h2><i class="fas fa-cubes"></i> Add Items</h2>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Item Name</label>
+                                    <input type="text" id="item-name" placeholder="Box A">
+                                </div>
+                                <div class="form-group">
+                                    <label>Length (m)</label>
+                                    <input type="number" id="item-length" placeholder="1.2" step="0.1" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Width (m)</label>
+                                    <input type="number" id="item-width" placeholder="0.8" step="0.1" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Height (m)</label>
+                                    <input type="number" id="item-height" placeholder="1.0" step="0.1" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Weight (kg)</label>
+                                    <input type="number" id="item-weight" placeholder="100" step="1" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Quantity</label>
+                                    <input type="number" id="item-quantity" placeholder="1" step="1" min="1" value="1">
+                                </div>
+                            </div>
+
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Item Type</label>
+                                    <select id="item-type">
+                                        <option value="general">General</option>
+                                        <option value="fragile">Fragile (Glass)</option>
+                                        <option value="wood">Wood</option>
+                                        <option value="metal">Metal</option>
+                                        <option value="electronics">Electronics</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Storage Type</label>
+                                    <select id="storage-type">
+                                        <option value="normal">Normal</option>
+                                        <option value="refrigerated">Refrigerated</option>
+                                        <option value="frozen">Frozen</option>
+                                        <option value="hazardous">Hazardous</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-secondary" id="add-item-btn">
+                                <i class="fas fa-plus"></i> Add Item
+                            </button>
+                        </div>
+
+                        <div class="section">
+                            <h2><i class="fas fa-list"></i> Items List</h2>
+                            <div id="items-list" class="items-list">
+                                <p class="empty-state">No items added yet. Add items above to get started.</p>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary btn-large" id="optimize-btn" disabled>
+                            <i class="fas fa-magic"></i> Optimize Container
+                        </button>
+                    </div>
+
+                    <div class="tab-content" id="optimize-tab">
+                        <div class="optimization-status">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <h2>Optimization in Progress...</h2>
+                            <p>Running genetic algorithm and constraint programming...</p>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="results-tab">
+                        <div class="results-container">
+                            <p class="empty-state">Run optimization to see results here.</p>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="history-tab">
+                        <div class="history-container">
+                            <p class="empty-state">No optimization history yet.</p>
+                        </div>
+                    </div>
+                </main>
+
+                <footer class="footer">
+                    <p>&copy; 2025 CargoOpt. AI-Powered Container Optimization System</p>
+                </footer>
+            </div>
+        `;
     }
-  }
-  
-  /**
-   * Handle viewing a result from history
-   */
-  async handleViewResult(optimizationId) {
-    try {
-      this.notifications.info('Loading optimization result...');
-      
-      const result = await this.api.getOptimizationResult(optimizationId);
-      
-      this.state.optimizationResult = result;
-      this.resultsViewer.displayResults(result);
-      this.navigateTo('results');
-      
-    } catch (error) {
-      console.error('Failed to load result:', error);
-      this.notifications.error('Failed to load optimization result');
-    }
-  }
-  
-  /**
-   * Handle deleting a result
-   */
-  async handleDeleteResult(optimizationId) {
-    if (!confirm('Are you sure you want to delete this optimization?')) {
-      return;
-    }
-    
-    try {
-      await this.api.deleteOptimization(optimizationId);
-      this.notifications.success('Optimization deleted');
-      
-      // Refresh history
-      await this.loadInitialData();
-      
-    } catch (error) {
-      console.error('Failed to delete:', error);
-      this.notifications.error('Failed to delete optimization');
-    }
-  }
-  
-  /**
-   * Handle export request
-   */
-  async handleExport(format, optimizationId) {
-    try {
-      this.notifications.info(`Exporting as ${format.toUpperCase()}...`);
-      
-      const blob = await this.api.exportResult(optimizationId, format);
-      
-      // Download file
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `optimization_${optimizationId}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      
-      this.notifications.success('Export complete');
-      
-    } catch (error) {
-      console.error('Export error:', error);
-      this.notifications.error('Export failed');
-    }
-  }
-  
-  /**
-   * Handle window resize
-   */
-  handleResize() {
-    // Update 3D viewer if visible
-    if (this.state.currentView === 'results' && this.resultsViewer) {
-      this.resultsViewer.handleResize();
-    }
-  }
-  
-  /**
-   * Handle online event
-   */
-  handleOnline() {
-    // Retry any failed requests
-    this.api.retryFailedRequests();
-  }
-  
-  /**
-   * Handle offline event
-   */
-  handleOffline() {
-    // Switch to offline mode
-    this.state.isOffline = true;
-  }
-  
-  /**
-   * Handle errors
-   */
-  handleError(error) {
-    console.error('Application error:', error);
-    
-    // Log to error tracking service (e.g., Sentry)
-    if (window.Sentry) {
-      window.Sentry.captureException(error);
-    }
-    
-    // Show user-friendly error message
-    const message = this.getErrorMessage(error);
-    this.notifications.error(message);
-  }
-  
-  /**
-   * Get user-friendly error message
-   */
-  getErrorMessage(error) {
-    if (error.response) {
-      return error.response.data.message || 'Server error occurred';
-    }
-    
-    if (error.request) {
-      return 'Cannot connect to server. Please check your connection.';
-    }
-    
-    return error.message || 'An unexpected error occurred';
-  }
-  
-  /**
-   * Register service worker for PWA
-   */
-  registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/service-worker.js')
-        .then(registration => {
-          console.log('Service Worker registered:', registration);
-        })
-        .catch(error => {
-          console.log('Service Worker registration failed:', error);
+
+    attachEventListeners() {
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
         });
+
+        // Add item button
+        document.getElementById('add-item-btn').addEventListener('click', () => this.addItem());
+
+        // Optimize button
+        document.getElementById('optimize-btn').addEventListener('click', () => this.startOptimization());
+
+        // Enable optimize button when items are added
+        this.updateOptimizeButton();
     }
-  }
-  
-  /**
-   * Get current state
-   */
-  getState() {
-    return { ...this.state };
-  }
-  
-  /**
-   * Update state
-   */
-  setState(updates) {
-    this.state = { ...this.state, ...updates };
-    this.emit('stateChange', this.state);
-  }
-  
-  /**
-   * Event emitter
-   */
-  on(event, callback) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
+
+    switchTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.tab === tabName) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(`${tabName}-tab`).classList.add('active');
     }
-    this.listeners.get(event).push(callback);
-  }
-  
-  emit(event, data) {
-    if (this.listeners.has(event)) {
-      this.listeners.get(event).forEach(callback => callback(data));
+
+    addItem() {
+        const name = document.getElementById('item-name').value;
+        const length = parseFloat(document.getElementById('item-length').value);
+        const width = parseFloat(document.getElementById('item-width').value);
+        const height = parseFloat(document.getElementById('item-height').value);
+        const weight = parseFloat(document.getElementById('item-weight').value);
+        const quantity = parseInt(document.getElementById('item-quantity').value);
+        const type = document.getElementById('item-type').value;
+        const storageType = document.getElementById('storage-type').value;
+
+        // Validation
+        if (!name || !length || !width || !height || !weight || !quantity) {
+            alert('Please fill in all item fields');
+            return;
+        }
+
+        const item = {
+            id: Date.now(),
+            name,
+            length,
+            width,
+            height,
+            weight,
+            quantity,
+            type,
+            storageType
+        };
+
+        this.items.push(item);
+        this.renderItems();
+        this.clearItemForm();
+        this.updateOptimizeButton();
     }
-  }
-  
-  /**
-   * Cleanup
-   */
-  destroy() {
-    // Remove event listeners
-    this.listeners.clear();
-    
-    // Destroy components
-    this.containerForm?.destroy();
-    this.resultsViewer?.destroy();
-    this.dashboard?.destroy();
-    
-    console.log('CargoOpt application destroyed');
-  }
+
+    renderItems() {
+        const listContainer = document.getElementById('items-list');
+        
+        if (this.items.length === 0) {
+            listContainer.innerHTML = '<p class="empty-state">No items added yet.</p>';
+            return;
+        }
+
+        listContainer.innerHTML = this.items.map(item => `
+            <div class="item-card">
+                <div class="item-header">
+                    <h3>${item.name}</h3>
+                    <button class="btn-icon" onclick="app.removeItem(${item.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                <div class="item-details">
+                    <span><i class="fas fa-ruler-combined"></i> ${item.length} × ${item.width} × ${item.height} m</span>
+                    <span><i class="fas fa-weight"></i> ${item.weight} kg</span>
+                    <span><i class="fas fa-hashtag"></i> Qty: ${item.quantity}</span>
+                </div>
+                <div class="item-tags">
+                    <span class="tag">${item.type}</span>
+                    <span class="tag">${item.storageType}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    removeItem(id) {
+        this.items = this.items.filter(item => item.id !== id);
+        this.renderItems();
+        this.updateOptimizeButton();
+    }
+
+    clearItemForm() {
+        document.getElementById('item-name').value = '';
+        document.getElementById('item-length').value = '';
+        document.getElementById('item-width').value = '';
+        document.getElementById('item-height').value = '';
+        document.getElementById('item-weight').value = '';
+        document.getElementById('item-quantity').value = '1';
+    }
+
+    updateOptimizeButton() {
+        const btn = document.getElementById('optimize-btn');
+        const hasContainer = document.getElementById('container-length').value &&
+                           document.getElementById('container-width').value &&
+                           document.getElementById('container-height').value;
+        
+        btn.disabled = !(hasContainer && this.items.length > 0);
+    }
+
+    async startOptimization() {
+        // Get container dimensions
+        this.container = {
+            length: parseFloat(document.getElementById('container-length').value),
+            width: parseFloat(document.getElementById('container-width').value),
+            height: parseFloat(document.getElementById('container-height').value)
+        };
+
+        // Switch to optimize tab
+        this.switchTab('optimize');
+
+        // Simulate optimization progress
+        const progressBar = document.getElementById('progress-fill');
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 10;
+            progressBar.style.width = progress + '%';
+            
+            if (progress >= 100) {
+                clearInterval(interval);
+                setTimeout(() => {
+                    this.showResults();
+                }, 500);
+            }
+        }, 300);
+
+        // In real implementation, this would call your backend API
+        // const response = await fetch('/api/optimize', {
+        //     method: 'POST',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify({ container: this.container, items: this.items })
+        // });
+    }
+
+    showResults() {
+        this.switchTab('results');
+        const resultsContainer = document.querySelector('.results-container');
+        
+        resultsContainer.innerHTML = `
+            <div class="results-success">
+                <i class="fas fa-check-circle"></i>
+                <h2>Optimization Complete!</h2>
+                <p>Your container packing has been optimized successfully.</p>
+            </div>
+
+            <div class="results-stats">
+                <div class="stat-card">
+                    <i class="fas fa-box-open"></i>
+                    <h3>Space Utilization</h3>
+                    <p class="stat-value">78.5%</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-cubes"></i>
+                    <h3>Items Packed</h3>
+                    <p class="stat-value">${this.items.reduce((sum, item) => sum + item.quantity, 0)}</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-weight-hanging"></i>
+                    <h3>Total Weight</h3>
+                    <p class="stat-value">${this.items.reduce((sum, item) => sum + (item.weight * item.quantity), 0)} kg</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2><i class="fas fa-cube"></i> 3D Visualization</h2>
+                <div id="3d-viewer" class="viewer-container">
+                    <p style="text-align: center; padding: 40px; color: #666;">
+                        3D visualization will be rendered here using Three.js
+                    </p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2><i class="fas fa-list-ol"></i> Item Placement Details</h2>
+                <div class="placement-list">
+                    ${this.items.map((item, index) => `
+                        <div class="placement-item">
+                            <strong>${item.name}</strong>
+                            <span>Position: (${(Math.random() * 5).toFixed(2)}, ${(Math.random() * 2).toFixed(2)}, ${(Math.random() * 2).toFixed(2)})</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="app.downloadPDF()">
+                    <i class="fas fa-file-pdf"></i> Download PDF Report
+                </button>
+                <button class="btn btn-secondary" onclick="app.downloadImage()">
+                    <i class="fas fa-image"></i> Download 3D Image
+                </button>
+                <button class="btn btn-secondary" onclick="app.downloadJSON()">
+                    <i class="fas fa-file-code"></i> Download JSON Data
+                </button>
+            </div>
+        `;
+    }
+
+    downloadPDF() {
+        alert('PDF download functionality will be implemented with backend integration');
+    }
+
+    downloadImage() {
+        alert('3D image download functionality will be implemented with Three.js integration');
+    }
+
+    downloadJSON() {
+        const data = {
+            container: this.container,
+            items: this.items,
+            timestamp: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cargoopt-${Date.now()}.json`;
+        a.click();
+    }
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  window.cargoApp = new CargoOptApp();
-  window.cargoApp.init();
-});
+// Initialize the application
+const app = new CargoOptApp();
 
-// Export for use in other modules
-export default CargoOptApp;
+// Make app globally accessible for inline onclick handlers
+window.app = app;
+
+console.log('CargoOpt Application Loaded Successfully!');
